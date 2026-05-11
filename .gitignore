@@ -1,0 +1,32 @@
+artifacts/
+
+# Gradle local cache and daemon state — machine-generated, never commit
+**/.gradle/
+**/.gradle-user-home/
+**/.gradle_user_home/
+**/build/
+**/local.properties
+**/.kotlin/
+**/.swiftpm/
+
+# Xcode build cache
+**/.derivedData/
+**/.cxx/
+**/DerivedData/
+**/*.xcuserstate
+**/xcuserdata/
+.xcode-spm-cache/
+.xcode-derived-data/
+**/Package.resolved
+
+# macOS metadata
+.DS_Store
+
+# IDE metadata
+**/.idea/
+**/.idea/**
+
+# SDK key (do not commit, all locations)
+**/sdk.key
+
+samples/ios-native/.build

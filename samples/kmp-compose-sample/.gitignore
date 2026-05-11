@@ -1,0 +1,7 @@
+.gradle/
+build/
+**/build/
+*.xcuserstate
+xcuserdata/
+.xcode-derived-data/
+local.properties

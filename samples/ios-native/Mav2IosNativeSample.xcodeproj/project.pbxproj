@@ -1,0 +1,312 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000010000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000110000000000000001 /* AppDelegate.swift */; };
+		A00000020000000000000001 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000120000000000000001 /* ViewController.swift */; };
+		A00000060000000000000001 /* MaverickAI in Frameworks */ = {isa = PBXBuildFile; productRef = A00000710000000000000001 /* MaverickAI */; };
+		B2CACB952FA1425700BD64F2 /* sdk.key in Resources */ = {isa = PBXBuildFile; fileRef = B2CACB942FA1425700BD64F2 /* sdk.key */; };
+		E51010000000000000000002 /* Everysight_Header.png in Resources */ = {isa = PBXBuildFile; fileRef = E51010000000000000000001 /* Everysight_Header.png */; };
+		E51010000000000000000004 /* Everysight_Footer.png in Resources */ = {isa = PBXBuildFile; fileRef = E51010000000000000000003 /* Everysight_Footer.png */; };
+		EAA100010000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EAA100020000000000000001 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A00000100000000000000001 /* Mav2IosNativeSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = Mav2IosNativeSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000110000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A00000120000000000000001 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		A00000140000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B2CACB942FA1425700BD64F2 /* sdk.key */ = {isa = PBXFileReference; explicitFileType = compiled; path = sdk.key; sourceTree = "<group>"; };
+		E51010000000000000000001 /* Everysight_Header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Everysight_Header.png; sourceTree = "<group>"; };
+		E51010000000000000000003 /* Everysight_Footer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Everysight_Footer.png; sourceTree = "<group>"; };
+		EAA100020000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A00000200000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000060000000000000001 /* MaverickAI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00000300000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A00000310000000000000001 /* Mav2IosNativeSample */,
+				A00000320000000000000001 /* Frameworks */,
+				A00000330000000000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A00000310000000000000001 /* Mav2IosNativeSample */ = {
+			isa = PBXGroup;
+			children = (
+				B2CACB942FA1425700BD64F2 /* sdk.key */,
+				E51010000000000000000001 /* Everysight_Header.png */,
+				E51010000000000000000003 /* Everysight_Footer.png */,
+				EAA100020000000000000001 /* Assets.xcassets */,
+				A00000110000000000000001 /* AppDelegate.swift */,
+				A00000120000000000000001 /* ViewController.swift */,
+				A00000140000000000000001 /* Info.plist */,
+			);
+			path = Mav2IosNativeSample;
+			sourceTree = "<group>";
+		};
+		A00000320000000000000001 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A00000330000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A00000100000000000000001 /* Mav2IosNativeSample.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A00000400000000000000001 /* Mav2IosNativeSample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000530000000000000001 /* Build configuration list for PBXNativeTarget "Mav2IosNativeSample" */;
+			buildPhases = (
+				A00000210000000000000001 /* Sources */,
+				A00000200000000000000001 /* Frameworks */,
+				A00000220000000000000001 /* Resources */,
+				B20000800000000000000001 /* Copy Maverick AI Compose Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Mav2IosNativeSample;
+			packageProductDependencies = (
+				A00000710000000000000001 /* MaverickAI */,
+			);
+			productName = Mav2IosNativeSample;
+			productReference = A00000100000000000000001 /* Mav2IosNativeSample.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000500000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A00000400000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A00000520000000000000001 /* Build configuration list for PBXProject "Mav2IosNativeSample" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A00000300000000000000001;
+			packageReferences = (
+				A00000700000000000000001 /* XCRemoteSwiftPackageReference "mav-ai-ios-spm" */,
+			);
+			productRefGroup = A00000330000000000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A00000400000000000000001 /* Mav2IosNativeSample */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000220000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E51010000000000000000002 /* Everysight_Header.png in Resources */,
+				E51010000000000000000004 /* Everysight_Footer.png in Resources */,
+				EAA100010000000000000001 /* Assets.xcassets in Resources */,
+				B2CACB952FA1425700BD64F2 /* sdk.key in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B20000800000000000000001 /* Copy Maverick AI Compose Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Maverick AI Compose Resources";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Copy compose-resources from embedded frameworks into the app bundle.\nfor FW in \"${TARGET_BUILD_DIR}/${PRODUCT_NAME}.app/Frameworks/\"*.framework; do\n    if [ -d \"$FW/compose-resources\" ]; then\n        rsync -av \"$FW/compose-resources\" \\\n            \"${TARGET_BUILD_DIR}/${PRODUCT_NAME}.app/\"\n    fi\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A00000210000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000010000000000000001 /* AppDelegate.swift in Sources */,
+				A00000020000000000000001 /* ViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A00000600000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		A00000610000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				SDKROOT = iphoneos;
+			};
+			name = Release;
+		};
+		A00000620000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 393M9SB2UU;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				INFOPLIST_FILE = Mav2IosNativeSample/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.everysight.samples.iosnative.spm;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A00000630000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 393M9SB2UU;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				INFOPLIST_FILE = Mav2IosNativeSample/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.everysight.samples.iosnative.spm;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A00000520000000000000001 /* Build configuration list for PBXProject "Mav2IosNativeSample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000600000000000000001 /* Debug */,
+				A00000610000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000530000000000000001 /* Build configuration list for PBXNativeTarget "Mav2IosNativeSample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000620000000000000001 /* Debug */,
+				A00000630000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A00000700000000000000001 /* XCRemoteSwiftPackageReference "mav-ai-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/everysight-maverick-AI/mav-ai-ios-spm.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A00000710000000000000001 /* MaverickAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A00000700000000000000001 /* XCRemoteSwiftPackageReference "mav-ai-ios-spm" */;
+			productName = MaverickAI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A00000500000000000000001 /* Project object */;
+}
