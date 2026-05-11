@@ -12,9 +12,10 @@ Here you'll find everything you need to get started: release notes, sample proje
 
 | Folder | Description |
 |--------|-------------|
-| [`samples/`](./samples/) | Sample applications for Android and iOS |
-| [`tools/`](./tools/) | Development tools - image converter, font converter, sprite builder, and the Glasses Simulator |
 | [`releasenotes/`](./releasenotes/) | SDK version history and changelogs |
+| [`samples/`](./samples/) | Sample applications for Android and iOS |
+| [`tools/`](./tools/) | Development tools - image converter, font converter and the Glasses Simulator |
+
 
 ## Getting Started
 
