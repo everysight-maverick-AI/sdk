@@ -1,6 +1,6 @@
 # Maverick AI / AI Pro SDK Release Notes
 
-## 0.1.0 (Alpha)
+## 0.1.0 (Alpha) | 11 MAY 2026
 
 Maverick AI / AI Pro SDK - Kotlin Multiplatform SDK for Maverick AI smart glasses.
 
