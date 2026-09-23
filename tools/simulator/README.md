@@ -8,7 +8,8 @@ Download instructions and usage information can be found in our [developers port
 
 ## Limitations
 
-- Sensors enulation (no physical sensors) for ambient, proximity, inertial etc.
+- Sensors are simulated, not physical: ambient light and the inertial stream are driven from
+  the dashboard. Proximity is not simulated.
 - No firmware update support (OTA)
-- Camera/microphone are simulated by the PC devices (first camera device found, default mic)
+- The AIVision sensor and the microphone use the PC's devices (first camera found, default mic)
 

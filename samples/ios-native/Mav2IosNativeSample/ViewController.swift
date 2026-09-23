@@ -1,9 +1,29 @@
 /*
  * Created by Everysight LTD.
  *
- * Native UIKit Maverick AI sample. The view controller demonstrates SDK
- * initialization, resource resolution, configuration, connection, and a simple
- * glasses HUD without relying on a higher-level app architecture.
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │  This sample is the native iOS PROJECT CONFIGURATION, and nothing more.  │
+ * │                                                                          │
+ * │  It shows how to get the SDK into a plain UIKit app and reach the        │
+ * │  glasses: the SPM dependency, the API key, init, permissions, connect,   │
+ * │  and one HUD screen to prove the link works.                             │
+ * │                                                                          │
+ * │  For what the SDK can DRAW and DO — video, gradients, accelerating       │
+ * │  animators, text effects, audio, the eye tracker — read                  │
+ * │  `kmp-compose-sample`. That is the one full app, and every feature is    │
+ * │  demonstrated there once rather than in three places.                    │
+ * │                                                                          │
+ * │  The SDK is the same Kotlin Multiplatform binary either way. Nothing     │
+ * │  here is iOS-specific except the UIKit around it.                        │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * The things a host app must get right, in order:
+ *
+ *   1. Package.swift / Xcode  — the MaverickAI XCFramework via SPM
+ *   2. sdk.key                — in the app bundle, next to your own resources
+ *   3. Evs.shared.doInit()    — once, before touching any service
+ *   4. Info.plist             — NSBluetoothAlwaysUsageDescription, or connecting fails
+ *   5. configure, then connect
  */
 
 import UIKit
@@ -11,59 +31,52 @@ import UIKit
 import MaverickAI
 #endif
 
-private enum EsBrand {
-    static let yellow = UIColor(red: 0.922, green: 0.922, blue: 0.439, alpha: 1.0)
-    static let darkBlue = UIColor(red: 0.067, green: 0.090, blue: 0.137, alpha: 1.0)
-    static let darkBlue2 = UIColor(red: 0.110, green: 0.133, blue: 0.200, alpha: 1.0)
-    static let blueGrey = UIColor(red: 0.545, green: 0.616, blue: 0.682, alpha: 1.0)
-    static let lightBlue = UIColor(red: 0.651, green: 0.733, blue: 0.792, alpha: 1.0)
-    static let glassBorder = UIColor(red: 0.824, green: 0.886, blue: 1.0, alpha: 0.17)
-}
-
-/// Main UIKit screen for the native iOS SDK sample.
+/// Native iOS configuration reference for the Maverick AI SDK.
 final class ViewController: UIViewController {
 #if canImport(MaverickAI)
 
+    /**
+     * Connection callbacks.
+     *
+     * These arrive on the SDK's own thread, so anything touching UIKit hops to the main
+     * queue — see where these are wired in `viewDidLoad`.
+     */
     private final class ConnectionListener: NSObject, IM2GlassesConnectionEvents {
-        var onStatus: ((ConnectionStatus) -> Void)?
+        var onStatus: ((M2ConnectionStatus) -> Void)?
         var onReadyChanged: ((Bool) -> Void)?
 
         func onConfigureDevice(address: String?, name: String?) {
             print("configured device address=\(address ?? "nil") name=\(name ?? "nil")")
         }
 
-        func onConnectionStatusChanged(status: ConnectionStatus) {
-            print("status=\(status)")
+        func onConnectionStatusChanged(status: M2ConnectionStatus) {
             onStatus?(status)
         }
 
-        func onReady() {
-            print("ready")
-            onReadyChanged?(true)
-        }
+        /// Ready means every SDK service is up. This, not `connected`, is when to draw.
+        func onReady() { onReadyChanged?(true) }
 
-        func onUnReady() {
-            print("unready")
-            onReadyChanged?(false)
-        }
+        func onUnReady() { onReadyChanged?(false) }
     }
 
-    /// Simple HUD screen rendered on the glasses when Add Screen is selected.
+    /**
+     * The smallest useful HUD: a box and two lines of text.
+     *
+     * A screen is a coordinate space on the glasses, not a window on the phone. Drawables
+     * are added in `onCreate` and the SDK owns them from there.
+     */
     private final class HudScreen: M2Screen {
         init() {
             super.init(width: 420, height: 180, tag: "sample-hud-screen")
         }
 
         override func onCreate() {
-            let background = M2RectFilled(color: M2Color.black, tag: nil)
-            _ = background.setDimensions(x: 0, y: 0, width: 420, height: 180)
-
-            let title = M2Text(text: "MAV2 SDK Sample HUD", tag: nil)
+            let title = M2Text(text: "MAVERICK AI", tag: nil)
             _ = title.setXY(x: 24, y: 24)
             _ = title.setColor(evsColor: M2Color.white)
             _ = title.setScale(scale: 1.1)
 
-            let subtitle = M2Text(text: "Regular M2Screen (not full screen)", tag: nil)
+            let subtitle = M2Text(text: "iOS native — configuration sample", tag: nil)
             _ = subtitle.setXY(x: 24, y: 54)
             _ = subtitle.setColor(evsColor: M2Color.white)
             _ = subtitle.setScale(scale: 0.82)
@@ -71,7 +84,6 @@ final class ViewController: UIViewController {
             let box = M2RectOutline(color: M2Color.green, tag: nil)
             _ = box.setDimensions(x: 16, y: 14, width: 388, height: 144)
 
-            _ = add(drawable: background)
             _ = add(drawable: box)
             _ = add(drawable: title)
             _ = add(drawable: subtitle)
@@ -96,41 +108,16 @@ final class ViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = EsBrand.darkBlue
-        overrideUserInterfaceStyle = .dark
-        title = "MAV2 iOS Native Sample"
+        title = "Maverick AI — iOS native"
+        view.backgroundColor = .systemBackground
 
-        let scroll = UIScrollView()
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.alwaysBounceVertical = true
-        view.addSubview(scroll)
-
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 14
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        scroll.addSubview(stack)
-        NSLayoutConstraint.activate([
-            scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: scroll.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: scroll.topAnchor, constant: 16),
-            stack.bottomAnchor.constraint(equalTo: scroll.bottomAnchor, constant: -16),
-            stack.widthAnchor.constraint(equalTo: scroll.widthAnchor, constant: -40),
-        ])
-
-        stack.addArrangedSubview(makeHeader(subtitle: "MAVERICK AI · IOS NATIVE SAMPLE"))
         statusLabel.text = "status: sdk not ready"
-        statusLabel.textColor = .white
-        statusLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        statusLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        statusLabel.numberOfLines = 0
         configuredLabel.text = "configured device: not configured"
-        configuredLabel.textColor = EsBrand.blueGrey
-        configuredLabel.font = UIFont.systemFont(ofSize: 14)
+        configuredLabel.textColor = .secondaryLabel
+        configuredLabel.font = .systemFont(ofSize: 14)
         configuredLabel.numberOfLines = 0
-        stack.addArrangedSubview(makeGlassCard([statusLabel, configuredLabel]))
 
 #if canImport(MaverickAI)
         listener.onStatus = { [weak self] status in
@@ -142,173 +129,78 @@ final class ViewController: UIViewController {
                 self.isReady = ready
                 self.isConnected = ready
                 self.statusText = ready ? "ready" : "disconnected"
-                if ready { self.autoAddSampleHudOnConnect() }
+                // Nothing drawn before Ready survives, so the screen goes on once it is.
+                if ready { self.addHudOnce() }
                 self.refreshUi()
             }
         }
 #endif
 
-        let buttons: [(String, Selector)] = [
-            ("Init SDK", #selector(onInit)),
-            ("Configure", #selector(onConfigure)),
-            ("Adjust", #selector(onShowAdjust)),
-            ("Connect", #selector(onToggleConnect)),
-            ("Add Screen", #selector(onToggleScreen)),
-        ]
-        applyButtonStyle(initButton, label: "Init SDK", primary: false)
-        initButton.addTarget(self, action: #selector(onInit), for: .touchUpInside)
-        stack.addArrangedSubview(initButton)
+        configure(initButton, "1 · Init SDK", #selector(onInit))
+        let configureButton = makeButton("2 · Configure glasses", #selector(onConfigure))
+        configure(connectButton, "3 · Connect", #selector(onToggleConnect))
+        configure(screenButton, "4 · Add HUD screen", #selector(onToggleScreen))
+        sdkGatedButtons = [configureButton, connectButton, screenButton]
 
-        let actionsCard = UIStackView()
-        actionsCard.axis = .vertical
-        actionsCard.spacing = 10
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.distribution = .fillEqually
-        row.spacing = 8
-        for (label, action) in buttons {
-            if action == #selector(onInit) { continue }
-            let button: UIButton
-            if action == #selector(onToggleConnect) {
-                button = connectButton
-            } else if action == #selector(onToggleScreen) {
-                button = screenButton
-            } else {
-                button = UIButton(type: .system)
-            }
-            applyButtonStyle(button, label: label, primary: false)
-            button.addTarget(self, action: action, for: .touchUpInside)
-            sdkGatedButtons.append(button)
-            if action != #selector(onToggleScreen) {
-                row.addArrangedSubview(button)
-            }
-        }
-        actionsCard.addArrangedSubview(row)
-        actionsCard.addArrangedSubview(screenButton)
-        stack.addArrangedSubview(makeGlassCard([actionsCard]))
-        stack.addArrangedSubview(makeFooter())
+        let stack = UIStackView(arrangedSubviews: [
+            statusLabel,
+            configuredLabel,
+            initButton,
+            configureButton,
+            connectButton,
+            screenButton,
+        ])
+        stack.axis = .vertical
+        stack.spacing = 14
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
+        ])
+
         applySdkGatedEnabled(false)
     }
 
-    private func applySdkGatedEnabled(_ enabled: Bool) {
-        for button in sdkGatedButtons {
-            button.isEnabled = enabled
-            button.alpha = enabled ? 1.0 : 0.4
-        }
-    }
+    // ── the four steps ────────────────────────────────────────────────────────
 
-    private func makeHeader(subtitle: String) -> UIView {
-        let container = UIStackView()
-        container.axis = .vertical
-        container.spacing = 6
-        container.alignment = .leading
-        let logo = UIImageView(image: UIImage(named: "Everysight_Header"))
-        logo.contentMode = .scaleAspectFit
-        logo.heightAnchor.constraint(lessThanOrEqualToConstant: 56).isActive = true
-        container.addArrangedSubview(logo)
-        let subtitleLabel = UILabel()
-        subtitleLabel.textColor = EsBrand.blueGrey
-        subtitleLabel.font = UIFont.systemFont(ofSize: 11, weight: .semibold)
-        subtitleLabel.attributedText = NSAttributedString(string: subtitle, attributes: [.kern: 2.0])
-        subtitleLabel.adjustsFontSizeToFitWidth = true
-        container.addArrangedSubview(subtitleLabel)
-        return container
-    }
-
-    private func makeFooter() -> UIView {
-        let wrapper = UIView()
-        let logo = UIImageView(image: UIImage(named: "Everysight_Footer"))
-        logo.translatesAutoresizingMaskIntoConstraints = false
-        logo.contentMode = .scaleAspectFit
-        wrapper.addSubview(logo)
-        NSLayoutConstraint.activate([
-            logo.centerXAnchor.constraint(equalTo: wrapper.centerXAnchor),
-            logo.topAnchor.constraint(equalTo: wrapper.topAnchor, constant: 4),
-            logo.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor, constant: -4),
-            logo.heightAnchor.constraint(lessThanOrEqualToConstant: 28),
-        ])
-        return wrapper
-    }
-
-    private func makeGlassCard(_ views: [UIView]) -> UIView {
-        let card = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
-        card.translatesAutoresizingMaskIntoConstraints = false
-        card.layer.cornerRadius = 20
-        card.clipsToBounds = true
-        card.layer.borderColor = EsBrand.glassBorder.cgColor
-        card.layer.borderWidth = 1
-        card.contentView.backgroundColor = EsBrand.darkBlue2.withAlphaComponent(0.48)
-        let inner = UIStackView(arrangedSubviews: views)
-        inner.axis = .vertical
-        inner.spacing = 10
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        card.contentView.addSubview(inner)
-        NSLayoutConstraint.activate([
-            inner.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 16),
-            inner.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor, constant: -16),
-            inner.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 14),
-            inner.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor, constant: -14),
-        ])
-        return card
-    }
-
-    private func applyButtonStyle(_ button: UIButton, label: String, primary: Bool) {
-        if !button.constraints.contains(where: { $0.firstAttribute == .height }) {
-            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
-        }
-        button.setTitle(label, for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
-        button.layer.cornerRadius = 12
-        button.layer.borderWidth = primary ? 0 : 1
-        button.layer.borderColor = EsBrand.glassBorder.cgColor
-        if primary {
-            button.backgroundColor = EsBrand.yellow
-            button.setTitleColor(EsBrand.darkBlue, for: .normal)
-        } else {
-            button.backgroundColor = EsBrand.darkBlue2.withAlphaComponent(0.64)
-            button.setTitleColor(.white, for: .normal)
-        }
-    }
-
+    /// Step 1. Everything else in the SDK requires this to have run.
     @objc private func onInit() {
 #if canImport(MaverickAI)
         guard !Evs.shared.wasInitialized() else { return }
         Evs.shared.doInit()
         ensureConnectionListenerRegistered()
         statusText = "init ok"
-        refreshConfiguredLabel()
         refreshUi()
 #endif
-        print("Init SDK requested")
     }
 
+    /**
+     * Step 2. Scan and pick a pair of glasses.
+     *
+     * The SDK ships this screen, so a host app does not have to write BLE scanning UI. It
+     * is also where the Bluetooth permission prompt happens.
+     */
     @objc private func onConfigure() {
 #if canImport(MaverickAI)
         Evs.shared.glassesService.disconnect()
-        statusText = "disconnected"
         isConnected = false
         isReady = false
-        Evs.shared.showUI(option: M2ShowUIOption.companion.DefaultConfigure)
-        refreshConfiguredLabel()
+        statusText = "disconnected"
+        Evs.shared.showAppUI(option: M2AppUIOption.companion.DefaultConfigure)
         refreshUi()
 #endif
-        print("Configure requested")
     }
 
-    @objc private func onShowAdjust() {
-#if canImport(MaverickAI)
-        Evs.shared.showUI(option: M2ShowUIOption.companion.DefaultAdjust)
-#endif
-        print("Show adjust requested")
-    }
-
+    /// Step 3. Connect to whatever step 2 configured.
     @objc private func onToggleConnect() {
 #if canImport(MaverickAI)
         if isConnected || isReady {
             Evs.shared.glassesService.disconnect()
-            statusText = "disconnected"
             isConnected = false
             isReady = false
+            statusText = "disconnected"
         } else {
             ensureConnectionListenerRegistered()
             Evs.shared.glassesService.connect()
@@ -316,9 +208,9 @@ final class ViewController: UIViewController {
         }
         refreshUi()
 #endif
-        print("Toggle connect requested")
     }
 
+    /// Step 4. Put something on the glasses.
     @objc private func onToggleScreen() {
 #if canImport(MaverickAI)
         if isScreenAdded, let hudScreen {
@@ -327,19 +219,25 @@ final class ViewController: UIViewController {
             refreshUi()
             return
         }
-        if hudScreen == nil {
-            hudScreen = HudScreen()
-        }
-        if let hudScreen {
-            _ = Evs.shared.screenService.addScreen(screen: hudScreen)
-        }
-        isScreenAdded = true
+        addHudOnce()
         refreshUi()
 #endif
-        print("Toggle screen requested")
     }
 
+    // ── plumbing ──────────────────────────────────────────────────────────────
+
 #if canImport(MaverickAI)
+    /// Idempotent: Ready can fire more than once, and the button calls this too.
+    private func addHudOnce() {
+        guard Evs.shared.wasInitialized(), !isScreenAdded else { return }
+        if hudScreen == nil { hudScreen = HudScreen() }
+        if let hudScreen {
+            _ = Evs.shared.screenService.addScreen(screen: hudScreen)
+            isScreenAdded = true
+        }
+    }
+
+    /// Registering twice would deliver every callback twice.
     private func ensureConnectionListenerRegistered() {
         if !listenerRegistered {
             Evs.shared.glassesService.registerConnectionListener(listener: listener)
@@ -347,35 +245,15 @@ final class ViewController: UIViewController {
         }
     }
 
-    private func applyConnectionStatus(_ status: ConnectionStatus) {
+    private func applyConnectionStatus(_ status: M2ConnectionStatus) {
         _ = status
         let ready = Evs.shared.glassesService.isReady()
         let connected = Evs.shared.glassesService.isConnected()
-
-        if ready {
-            statusText = "ready"
-        } else if connected {
-            statusText = "connected"
-        } else {
-            statusText = "disconnected"
-        }
-
+        statusText = ready ? "ready" : (connected ? "connected" : "disconnected")
         isReady = ready
         isConnected = connected
-        if ready { autoAddSampleHudOnConnect() }
+        if ready { addHudOnce() }
         refreshUi()
-    }
-
-    /// Auto-attaches HudScreen (the same screen the Add Screen button uses)
-    /// the first time the glasses report Ready, so the operator sees the
-    /// sample HUD without an extra tap. Idempotent across re-Ready callbacks.
-    private func autoAddSampleHudOnConnect() {
-        guard Evs.shared.wasInitialized(), !isScreenAdded else { return }
-        if hudScreen == nil { hudScreen = HudScreen() }
-        if let s = hudScreen {
-            _ = Evs.shared.screenService.addScreen(screen: s)
-            isScreenAdded = true
-        }
     }
 
     private func refreshConfiguredLabel() {
@@ -390,11 +268,34 @@ final class ViewController: UIViewController {
     private func refreshUi() {
         statusLabel.text = "status: \(statusText)"
         let isSdkInitialized = Evs.shared.wasInitialized()
-        applyButtonStyle(initButton, label: isSdkInitialized ? "SDK initialized" : "Init SDK", primary: isSdkInitialized)
+        initButton.setTitle(isSdkInitialized ? "1 · SDK initialized" : "1 · Init SDK", for: .normal)
         initButton.isEnabled = !isSdkInitialized
-        connectButton.setTitle((isConnected || isReady) ? "Disconnect" : "Connect", for: .normal)
-        applyButtonStyle(screenButton, label: isScreenAdded ? "Remove Screen" : "Add Screen", primary: isScreenAdded)
+        connectButton.setTitle((isConnected || isReady) ? "3 · Disconnect" : "3 · Connect", for: .normal)
+        screenButton.setTitle(isScreenAdded ? "4 · Remove HUD screen" : "4 · Add HUD screen", for: .normal)
         applySdkGatedEnabled(isSdkInitialized)
+        refreshConfiguredLabel()
     }
+#else
+    private func refreshUi() {}
 #endif
+
+    private func applySdkGatedEnabled(_ enabled: Bool) {
+        for button in sdkGatedButtons {
+            button.isEnabled = enabled
+            button.alpha = enabled ? 1.0 : 0.4
+        }
+    }
+
+    private func makeButton(_ label: String, _ action: Selector) -> UIButton {
+        let button = UIButton(type: .system)
+        configure(button, label, action)
+        return button
+    }
+
+    private func configure(_ button: UIButton, _ label: String, _ action: Selector) {
+        var config = UIButton.Configuration.bordered()
+        config.title = label
+        button.configuration = config
+        button.addTarget(self, action: action, for: .touchUpInside)
+    }
 }

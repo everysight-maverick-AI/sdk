@@ -3,14 +3,13 @@
 // Swift Package manifest for the native iOS Maverick AI sample.
 import PackageDescription
 
-let releaseName = "v0.1.0"
-let checksumMav2Sdk = "e1152c59bed7b32ee2b490b601c8f6e746ab3e3843f6c912671fd51140a48913"
+let releaseName = "v0.2.0"
+let checksumMav2Sdk = "68fde6ff9e1942c21c42a6e1ef6c5d5bbd5b8f9b216c95bb421a1c994f65dd92"
 
 let package = Package(
     name: "MaverickAI",
     platforms: [
-        .iOS(.v15),
-        .watchOS(.v8)
+        .iOS(.v15)
     ],
     products: [
         .library(name: "MaverickAI", targets: ["MaverickAI"])

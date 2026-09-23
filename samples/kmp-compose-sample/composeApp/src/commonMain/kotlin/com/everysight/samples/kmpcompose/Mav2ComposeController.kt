@@ -12,7 +12,8 @@
 package com.everysight.samples.kmpcompose
 
 import com.everysight.mav2.sdk.Evs
-import com.everysight.mav2.sdk.resources.CacheScope
+import com.everysight.mav2.sdk.resources.M2AudioResource
+import com.everysight.mav2.sdk.resources.M2CacheScope
 import com.everysight.mav2.sdk.resources.M2FontResource
 import com.everysight.mav2.sdk.resources.M2ImageFile
 import com.everysight.mav2.sdk.services.IM2AIFrame
@@ -22,18 +23,21 @@ import com.everysight.mav2.sdk.services.IM2GlassesSystemEvents
 import com.everysight.mav2.sdk.services.IM2MicrophoneEvents
 import com.everysight.mav2.sdk.services.IM2SensorsEvents
 import com.everysight.mav2.sdk.services.M2AIVisionService
+import com.everysight.mav2.sdk.services.M2AudioService
 import com.everysight.mav2.sdk.services.M2MicService
+import com.everysight.mav2.sdk.services.audio.M2AudioStreamError
+import com.everysight.mav2.sdk.services.audio.M2AudioStreamInput
 import com.everysight.mav2.sdk.services.data.M2Quaternion
 import com.everysight.mav2.sdk.uikit.animators.ext.translateXBy
 import com.everysight.mav2.sdk.uikit.base.M2Drawable
-import com.everysight.mav2.sdk.uikit.data.ConnectionStatus
+import com.everysight.mav2.sdk.uikit.data.M2ConnectionStatus
 import com.everysight.mav2.sdk.uikit.data.M2AIFrameResolution
-import com.everysight.mav2.sdk.uikit.data.M2AIVisionStreamConfig
+import com.everysight.mav2.sdk.uikit.data.M2ContinuousOptions
 import com.everysight.mav2.sdk.uikit.data.M2DeviceType
 import com.everysight.mav2.sdk.uikit.data.M2ImuCalibrationState
-import com.everysight.mav2.sdk.uikit.data.M2ShowUIOption
-import com.everysight.mav2.sdk.uikit.data.SensorsRate
-import com.everysight.mav2.sdk.uikit.data.Touch
+import com.everysight.mav2.sdk.uikit.data.M2AppUIOption
+import com.everysight.mav2.sdk.uikit.data.M2SensorsRate
+import com.everysight.mav2.sdk.uikit.data.M2Touch
 import com.everysight.mav2.sdk.uikit.drawables.M2EllipseFilled
 import com.everysight.mav2.sdk.uikit.drawables.M2Image
 import com.everysight.mav2.sdk.uikit.drawables.M2Line
@@ -44,21 +48,52 @@ import com.everysight.mav2.sdk.uikit.drawables.M2Text
 import com.everysight.mav2.sdk.uikit.drawables.ext.setDimensions
 import com.everysight.mav2.sdk.uikit.screens.M2Screen
 import com.everysight.mav2.sdk.utils.M2Color
+import com.everysight.samples.kmpcompose.generated.resources.Res
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.ExperimentalResourceApi
 import kotlin.math.PI
 import kotlin.math.roundToInt
+
+/** Where the desktop glasses simulator is expected to be listening. */
+private const val SIMULATOR_HOST = "127.0.0.1"
+
+/** A public weather camera, so the RTSP path can be tried without standing up a camera. */
+private const val WEATHER_CAM_URL = "rtsp://stream.strba.sk:1935/strba/VYHLAD_NAMESTIE.stream"
+
+/** A public ICY radio stream, so the speaker stream path can be tried without a server. */
+private const val RADIO_STREAM_URL = "https://listen.181fm.com/181-beatles_128k.mp3"
+
+/**
+ * The bundled clip, under composeResources/files/. A raw H264 baseline elementary stream - the one
+ * shape every platform reads directly, with no demuxer in the way.
+ */
+private const val SAMPLE_CLIP_PATH = "files/video/woman1.h264"
+
+/**
+ * The bundled sound.
+ *
+ * [M2AudioResource] resolves this itself through the resources service, so the path is
+ * relative to `files/` and the app never reads the bytes - unlike video, where the app does.
+ */
+private const val SAMPLE_SOUND_PATH = "audio/sample_tone.wav"
 
 /** Top-level tabs shown in the sample app. */
 enum class SanityCategory(val title: String) {
     UIKitAnimators("UIKit + Animators"),
     AudioAiVision("Audio + AIVision"),
     Los("LOS"),
-    Services("OTA + Display")
+    Motion("Motion"),
+    Fills("Fills + Text"),
+    Video("Video"),
+    Speaker("Speaker"),
+    Gaze("Eye tracker"),
+    Services("Services")
 }
 
 /** Buttons available in the UIKit and animator tab. */
@@ -70,8 +105,27 @@ enum class StreamAction { ToggleMic, ToggleAiVision, ToggleLos, ToggleTouch }
 /** LiveAI playground demos exposed from the LOS tab. */
 enum class LosDemoAction { Show3dDemo, Show3dPicturesDemo, RemoveLast3dItem, ClearAll3dItems }
 
-/** Service probes shown in the OTA + Display tab. */
-enum class ServiceAction { BrightnessUp, BrightnessDown, OtaProbe }
+/** Video sources and transport controls. */
+enum class VideoAction { PlayClip, PlayCamera, PlayWeatherCam, TogglePlayback }
+
+/** The two ways to get sound out of the glasses speaker. */
+enum class SpeakerAction { PlaySound, ToggleRadio }
+
+/** Eye-tracker analyzer controls. */
+enum class GazeAction { ToggleAnalyzers }
+
+/**
+ * Service probes shown in the Services tab.
+ *
+ * The last one is a whole feature in one call: a connection to the desktop simulator instead
+ * of real hardware.
+ */
+enum class ServiceAction {
+    BrightnessUp,
+    BrightnessDown,
+    OtaProbe,
+    ConnectSimulator,
+}
 
 /**
  * Owns SDK interactions for the sample UI.
@@ -100,7 +154,10 @@ class Mav2ComposeController {
 
     data class ServicesState(
         val brightness: Int = 0,
-        val otaSummary: String = "—"
+        /** The firmware the connected glasses are running. */
+        val glassesFirmware: String = "—",
+        /** The newest firmware bundled with the SDK, and whether these glasses should take it. */
+        val latestOta: String = "—"
     )
 
     data class UiState(
@@ -114,6 +171,8 @@ class Mav2ComposeController {
         val streams: StreamsState = StreamsState(),
         val services: ServicesState = ServicesState(),
         val activeLosDemo: LosDemoAction? = null,
+        /** The radio stream is open, or opening - drives the toggle's on look. */
+        val radioOn: Boolean = false,
         val lastAction: String = "Pick a category, then Show HUD"
     )
 
@@ -127,6 +186,59 @@ class Mav2ComposeController {
     private var hudLos: LosHudScreen? = null
     private var hudLosDemo: M2Screen? = null
     private var hudServices: ServicesHudScreen? = null
+    private var hudMotion: MotionDemoScreen? = null
+    private var hudFills: FillsDemoScreen? = null
+    private var hudVideo: VideoDemoScreen? = null
+    private var hudSpeaker: SpeakerDemoScreen? = null
+    private var hudGaze: GazeDemoScreen? = null
+
+    /** The two analyzers, held so they can be unregistered again. */
+    private var gazeAnalyzer: LeftRightGazeAnalyzer? = null
+    private var blinkAnalyzer: BlinkAnalyzer? = null
+
+    /**
+     * Created once and reused. A resource carries its glasses-side cache slot, so a new
+     * object per play would upload the same bytes again.
+     */
+    private var sampleSound: M2AudioResource? = null
+
+    /**
+     * Speaker stream state, reported by the SDK rather than assumed by the app.
+     *
+     * openStream() returning true only means the request was accepted. Whether audio actually
+     * reaches the glasses - and whether the URL was reachable at all - arrives here, which is
+     * why the sample listens instead of printing an optimistic "playing".
+     */
+    private val audioStreamListener = object : M2AudioService.IOnAudioStreamEvents {
+        override fun onAudioStreamChanged(input: M2AudioStreamInput?) {
+            if (input == null) {
+                hudSpeaker?.show("Silent")
+                state = state.copy(radioOn = false)
+            }
+        }
+
+        override fun onAudioStreamStarted(input: M2AudioStreamInput) {
+            hudSpeaker?.show("Internet radio", "playing")
+            setLastAction("Radio playing")
+        }
+
+        override fun onAudioStreamError(error: M2AudioStreamError) {
+            state = state.copy(radioOn = false)
+            hudSpeaker?.show("Radio error", error.code.name)
+            setLastAction("Radio error: ${error.code}")
+        }
+
+        // ICY metadata: the station names its current track. Free proof that real bytes are
+        // flowing, which an open socket on its own is not.
+        override fun onStreamMetadata(title: String) {
+            hudSpeaker?.showDetail(title)
+            setLastAction("Radio: $title")
+        }
+    }
+
+    private var audioStreamRegistered = false
+
+    /** The font fetched at runtime, once it has arrived. */
     private var ratePollJob: Job? = null
     private var micBytesAccumulator: Long = 0L
     private var aiVisionBytesAccumulator: Long = 0L
@@ -136,19 +248,19 @@ class Mav2ComposeController {
     var onStateChanged: (UiState) -> Unit = {}
 
     private val connectionListener = object : IM2GlassesConnectionEvents {
-        override fun onConnectionStatusChanged(status: ConnectionStatus) {
+        override fun onConnectionStatusChanged(status: M2ConnectionStatus) {
             state = state.copy(
                 sdkStatus = when (status) {
-                    ConnectionStatus.Ready -> "ready"
-                    ConnectionStatus.Connected -> "connected"
-                    ConnectionStatus.Connecting -> if (state.isReady) "ready" else "connecting"
-                    ConnectionStatus.Disconnected,
-                    ConnectionStatus.BluetoothOff,
-                    ConnectionStatus.Failed,
-                    ConnectionStatus.AuthFailed -> "disconnected"
+                    M2ConnectionStatus.Ready -> "ready"
+                    M2ConnectionStatus.Connected -> "connected"
+                    M2ConnectionStatus.Connecting -> if (state.isReady) "ready" else "connecting"
+                    M2ConnectionStatus.Disconnected,
+                    M2ConnectionStatus.BluetoothOff,
+                    M2ConnectionStatus.Failed,
+                    M2ConnectionStatus.AuthFailed -> "disconnected"
                 },
-                isConnected = status == ConnectionStatus.Connected || status == ConnectionStatus.Ready,
-                isReady = status == ConnectionStatus.Ready
+                isConnected = status == M2ConnectionStatus.Connected || status == M2ConnectionStatus.Ready,
+                isReady = status == M2ConnectionStatus.Ready
             )
             emitState()
         }
@@ -181,7 +293,7 @@ class Mav2ComposeController {
     }
 
     private val systemListener = object : IM2GlassesSystemEvents {
-        override fun onTouch(touch: Touch) {
+        override fun onTouch(touch: M2Touch) {
             updateTouchState(touchLabel(touch))
         }
     }
@@ -192,11 +304,10 @@ class Mav2ComposeController {
             hudAudioAiVision?.updateMic(isOn, state.streams.micBytesPerSec)
             emitState()
         }
-        override fun onMicrophoneOggOpusFrameReceived(data: ByteArray, offset: Int, size: Int) {
-            micBytesAccumulator += size
+        override fun onMicrophoneRawReceived(micId: Int, rawData: ByteArray) {
+            micBytesAccumulator += rawData.size
         }
-        override fun onMicrophoneRawReceived(rawData: ByteArray) { /* counted via Ogg path */ }
-        override fun onError(type: M2MicService.M2MicServiceErrors, message: String) {
+        override fun onError(type: M2MicService.Errors, message: String) {
             setLastAction("Mic error: $type — $message")
         }
     }
@@ -214,7 +325,7 @@ class Mav2ComposeController {
                 frame.release()
             }
         }
-        override fun onError(type: M2AIVisionService.M2AIVisionServiceErrors, message: String) {
+        override fun onError(type: M2AIVisionService.Errors, message: String) {
             setLastAction("AIVision error: $type — $message")
         }
     }
@@ -242,14 +353,14 @@ class Mav2ComposeController {
 
     fun showConfigure() {
         Evs.glassesService.disconnect()
-        Evs.showUI(M2ShowUIOption.DefaultConfigure)
+        Evs.showAppUI(M2AppUIOption.DefaultConfigure)
         state = state.copy(sdkStatus = "disconnected", isConnected = false, isReady = false)
         refreshConfiguredState()
         emitState()
     }
 
     fun showAdjust() {
-        Evs.showUI(M2ShowUIOption.DefaultAdjust)
+        Evs.showAppUI(M2AppUIOption.DefaultAdjust)
         setLastAction("Default adjust UI requested")
     }
 
@@ -328,17 +439,61 @@ class Mav2ComposeController {
                 s.updateAll(state.services)
                 state = state.copy(isScreenAdded = true, lastAction = "HUD: OTA + display")
             }
+            SanityCategory.Motion -> {
+                val s = MotionDemoScreen()
+                hudMotion = s
+                Evs.screenService.addScreen(s)
+                state = state.copy(isScreenAdded = true, lastAction = "HUD: accelerating animators")
+            }
+            SanityCategory.Fills -> {
+                val s = FillsDemoScreen()
+                hudFills = s
+                Evs.screenService.addScreen(s)
+                state = state.copy(isScreenAdded = true, lastAction = "HUD: gradients, textures and text")
+            }
+            SanityCategory.Video -> {
+                val s = VideoDemoScreen()
+                hudVideo = s
+                Evs.screenService.addScreen(s)
+                state = state.copy(isScreenAdded = true, lastAction = "HUD: video")
+            }
+            SanityCategory.Speaker -> {
+                val s = SpeakerDemoScreen()
+                hudSpeaker = s
+                Evs.screenService.addScreen(s)
+                state = state.copy(isScreenAdded = true, lastAction = "HUD: speaker")
+            }
+            SanityCategory.Gaze -> {
+                val s = GazeDemoScreen()
+                hudGaze = s
+                Evs.screenService.addScreen(s)
+                state = state.copy(isScreenAdded = true, lastAction = "HUD: eye-tracker analyzers")
+            }
         }
         emitState()
     }
 
     private fun removeAllHuds() {
+        // The analyzers outlive their screen unless they are taken down with it, and a
+        // registered analyzer keeps running - and keeps the eye camera busy - with nothing
+        // left to draw to.
+        stopGazeAnalyzers()
+        // Sound is not attached to a screen, so nothing stops the radio when the screen that
+        // started it goes away. A sound is finite and can be left to finish; a stream cannot.
+        if (Evs.audioService.isStreaming()) runCatching { Evs.audioService.closeStream() }
+
         hudUikit?.let { Evs.screenService.removeScreen(it) }
         hudAudioAiVision?.let { Evs.screenService.removeScreen(it) }
         hudLos?.let { Evs.screenService.removeScreen(it) }
         hudLosDemo?.let { Evs.screenService.removeScreen(it) }
         hudServices?.let { Evs.screenService.removeScreen(it) }
+        hudMotion?.let { Evs.screenService.removeScreen(it) }
+        hudFills?.let { Evs.screenService.removeScreen(it) }
+        hudVideo?.let { Evs.screenService.removeScreen(it) }
+        hudSpeaker?.let { Evs.screenService.removeScreen(it) }
+        hudGaze?.let { Evs.screenService.removeScreen(it) }
         hudUikit = null; hudAudioAiVision = null; hudLos = null; hudLosDemo = null; hudServices = null
+        hudMotion = null; hudFills = null; hudVideo = null; hudSpeaker = null; hudGaze = null
         state = state.copy(isScreenAdded = false, activeLosDemo = null)
         emitState()
     }
@@ -373,35 +528,35 @@ class Mav2ComposeController {
                     hudAudioAiVision?.updateMic(false, 0)
                     "Mic off"
                 } else {
-                    Evs.micService.openMicrophone(16)
+                    Evs.micService.openMicrophone(bitrateKBs = 16)
                     state = state.copy(streams = state.streams.copy(micOn = true))
                     hudAudioAiVision?.updateMic(true, 0)
                     "Mic on @ 16 KBs (waits for glasses)"
                 }
             }.fold(::setLastAction) { setLastAction("Mic error: ${it.message}") }
             StreamAction.ToggleAiVision -> runCatching {
-                val wasOn = Evs.visionService.isCapturing()
+                val wasOn = Evs.visionService.isCameraOpen()
                 if (wasOn) {
                     Evs.visionService.stopCapture()
                     state = state.copy(streams = state.streams.copy(aiVisionOn = false, aiVisionBytesPerSec = 0, aiVisionFps = 0f))
                     hudAudioAiVision?.updateAiVision(false, 0, 0f)
                     "AIVision off"
                 } else {
+                    // 0.2.0 replaced the old stream config with capture OPTIONS: you say what
+                    // kind of capture you want - one still, a continuous stream, video - and the
+                    // SDK works out the wire settings.
                     Evs.visionService.startCapture(
-                        M2AIVisionStreamConfig(
-                            resolution = M2AIFrameResolution.RES_960x512_x2,
-                            fpsDiv = M2AIVisionStreamConfig.FpsDividers.Fps5
-                        )
+                        M2ContinuousOptions(resolution = M2AIFrameResolution.RES_960x512_x2)
                     )
                     state = state.copy(streams = state.streams.copy(aiVisionOn = true))
                     hudAudioAiVision?.updateAiVision(true, 0, 0f)
-                    "AIVision streaming 5 fps (waits for glasses)"
+                    "AIVision streaming (waits for glasses)"
                 }
             }.fold(::setLastAction) { setLastAction("AIVision error: ${it.message}") }
             StreamAction.ToggleLos -> runCatching {
                 val nextOn = !state.streams.losOn
                 if (nextOn) {
-                    Evs.sensorsService.enableInertialSensors(SensorsRate.Fast)
+                    Evs.sensorsService.enableInertialSensors(M2SensorsRate.Fast)
                     state = state.copy(streams = state.streams.copy(losOn = true))
                     hudLos?.updateYpr(true, state.streams.yawDeg, state.streams.pitchDeg, state.streams.rollDeg, state.streams.calib)
                     "LOS sensors on (Fast rate)"
@@ -419,8 +574,8 @@ class Mav2ComposeController {
                 val newLast = if (next) "waiting…" else "—"
                 state = state.copy(streams = state.streams.copy(touchOn = next, lastTouch = newLast))
                 hudLos?.updateLastTouch(newLast)
-                "Touch ${if (next) "armed" else "disabled"}"
-            }.fold(::setLastAction) { setLastAction("Touch error: ${it.message}") }
+                "M2Touch ${if (next) "armed" else "disabled"}"
+            }.fold(::setLastAction) { setLastAction("M2Touch error: ${it.message}") }
         }
         emitState()
     }
@@ -501,14 +656,194 @@ class Mav2ComposeController {
                 Evs.displayService.setBrightness(next); refreshServicesState(); "Brightness=$next"
             }.fold(::setLastAction) { setLastAction("Display error: ${it.message}") }
             ServiceAction.OtaProbe -> runCatching {
-                val available = Evs.otaService.getAvailableVersions().size
-                val target = Evs.otaService.getVersionToInstall()?.version?.toString() ?: "none"
-                val summary = "$available avail / target=$target"
-                state = state.copy(services = state.services.copy(otaSummary = summary))
-                hudServices?.updateAll(state.services)
-                "OTA $summary"
+                refreshServicesState()
+                "Glasses ${state.services.glassesFirmware} | latest OTA ${state.services.latestOta}"
             }.fold(::setLastAction) { setLastAction("OTA error: ${it.message}") }
+
+            // The desktop simulator speaks the same wire protocol over a WebSocket, so
+            // everything else in this app is unchanged - only the transport differs.
+            ServiceAction.ConnectSimulator -> runCatching {
+                Evs.glassesService.setConfiguredSimulator(SIMULATOR_HOST)
+                "Connecting to the simulator at $SIMULATOR_HOST"
+            }.fold(::setLastAction) { setLastAction("Simulator error: ${it.message}") }
         }
+    }
+
+    /**
+     * Plays one of the motion recipes.
+     *
+     * Each is a single instruction that the glasses then walk on their own - see
+     * [MotionDemoScreen].
+     */
+    fun runMotionAction(demo: MotionDemo) {
+        if (state.selectedCategory != SanityCategory.Motion) {
+            setLastAction("Switch to ${SanityCategory.Motion.title} first"); return
+        }
+        if (!state.isScreenAdded) addCurrentHud()
+        hudMotion?.run(demo)
+        setLastAction("Motion: ${demo.label}")
+    }
+
+    /** Applies one fill to the demo panel - see [FillsDemoScreen]. */
+    fun runFillAction(demo: FillDemo) {
+        if (state.selectedCategory != SanityCategory.Fills) {
+            setLastAction("Switch to ${SanityCategory.Fills.title} first"); return
+        }
+        if (!state.isScreenAdded) addCurrentHud()
+        hudFills?.show(demo)
+        setLastAction("Fill: ${demo.label}")
+    }
+
+    /**
+     * Video sources.
+     *
+     * Reading the bundled clip is platform work and can be slow, so it happens off the SDK
+     * thread and only the finished bytes come back.
+     */
+    fun runVideoAction(action: VideoAction) {
+        if (state.selectedCategory != SanityCategory.Video) {
+            setLastAction("Switch to ${SanityCategory.Video.title} first"); return
+        }
+        if (!state.isScreenAdded) addCurrentHud()
+        val hud = hudVideo ?: return
+        when (action) {
+            VideoAction.PlayClip -> playBundledClip(hud, SAMPLE_CLIP_PATH, VideoSource.Clip)
+            VideoAction.PlayCamera -> runCatching {
+                hud.playPhoneCamera(); "Video: phone camera"
+            }.fold(::setLastAction) { setLastAction("Camera error: ${it.message}") }
+            VideoAction.PlayWeatherCam -> runCatching {
+                hud.playRtsp(WEATHER_CAM_URL); "Video: weather cam"
+            }.fold(::setLastAction) { setLastAction("RTSP error: ${it.message}") }
+            VideoAction.TogglePlayback -> {
+                val playing = hud.togglePlayback()
+                setLastAction(if (playing) "Video: playing" else "Video: paused")
+            }
+        }
+    }
+
+    private fun playBundledClip(hud: VideoDemoScreen, path: String, source: VideoSource) {
+        setLastAction("Loading ${source.label}...")
+        uiScope.launch {
+            runCatching { readClipBytes(path) }
+                .onSuccess { bytes ->
+                    // The constructor is where a clip is accepted or rejected - it indexes the
+                    // stream and checks the profile and NAL sizes - so it is inside the catch.
+                    runCatching { hud.playFile(bytes, source) }
+                        .fold({ setLastAction("Video: ${source.label}") }) {
+                            setLastAction("Video rejected: ${it.message}")
+                        }
+                }
+                .onFailure { setLastAction("Video error: ${it.message}") }
+        }
+    }
+
+    /**
+     * The glasses speaker.
+     *
+     * The two buttons are deliberately asymmetric: a sound is fire-and-forget, while a stream
+     * is a resource the app owns until it closes it. Only one stream exists at a time, which
+     * is why the radio button is a toggle rather than a play.
+     */
+    fun runSpeakerAction(action: SpeakerAction) {
+        if (state.selectedCategory != SanityCategory.Speaker) {
+            setLastAction("Switch to ${SanityCategory.Speaker.title} first"); return
+        }
+        if (!state.isScreenAdded) addCurrentHud()
+        ensureAudioStreamListenerRegistered()
+        when (action) {
+            // The resource is uploaded to the glasses on first play and cached there, so
+            // playing it again costs one small command and no transfer. That is also why it
+            // is held in a field - a new object per play would upload the same bytes again.
+            SpeakerAction.PlaySound -> runCatching {
+                val sound = sampleSound ?: M2AudioResource(SAMPLE_SOUND_PATH).also { sampleSound = it }
+                if (Evs.audioService.playSound(sound)) {
+                    hudSpeaker?.show("Bundled sound", SAMPLE_SOUND_PATH)
+                    "Playing $SAMPLE_SOUND_PATH"
+                } else {
+                    // The first press usually lands here: the bytes are still being uploaded.
+                    "Sound not ready yet - press again"
+                }
+            }.fold(::setLastAction) { setLastAction("Audio error: ${it.message}") }
+
+            // The SDK owns the socket and the MP3 decoder for a Url stream, so there is
+            // nothing to feed - open it and the glasses start playing.
+            SpeakerAction.ToggleRadio -> runCatching {
+                if (Evs.audioService.isStreaming()) {
+                    Evs.audioService.closeStream()
+                    hudSpeaker?.show("Silent")
+                    state = state.copy(radioOn = false)
+                    "Radio stopped"
+                } else {
+                    hudSpeaker?.show("Internet radio", "connecting...")
+                    if (Evs.audioService.openStream(M2AudioStreamInput.Url(RADIO_STREAM_URL))) {
+                        // On as soon as the request is accepted, so the button flips at once;
+                        // an unreachable URL flips it back through onAudioStreamError.
+                        state = state.copy(radioOn = true)
+                        "Radio opening: $RADIO_STREAM_URL"
+                    } else {
+                        "Radio failed: ${Evs.audioService.getLastStreamError()?.code}"
+                    }
+                }
+            }.fold(::setLastAction) { setLastAction("Radio error: ${it.message}") }
+        }
+    }
+
+    /**
+     * Starts or stops the two eye-feature analyzers.
+     *
+     * Registering is the whole wiring: the service feeds every analyzer every frame and
+     * delivers results on the SDK thread. Unregistering is not optional - an analyzer nobody
+     * unregisters keeps consuming frames after its screen is gone.
+     */
+    fun runGazeAction(action: GazeAction) {
+        if (state.selectedCategory != SanityCategory.Gaze) {
+            setLastAction("Switch to ${SanityCategory.Gaze.title} first"); return
+        }
+        if (!state.isScreenAdded) addCurrentHud()
+        when (action) {
+            GazeAction.ToggleAnalyzers -> {
+                if (gazeAnalyzer != null) {
+                    stopGazeAnalyzers()
+                    setLastAction("Eye analyzers stopped")
+                } else runCatching {
+                    // Registering an analyzer only subscribes it to the frames; the eye camera
+                    // still has to be turned on, or nothing is ever delivered.
+                    Evs.eyeTrackerService.enableEyeTracker()
+
+                    val gaze = LeftRightGazeAnalyzer()
+                    gaze.setResultListener { result -> hudGaze?.show(result) }
+                    Evs.eyeTrackerService.registerAnalyzer(gaze)
+                    gazeAnalyzer = gaze
+
+                    val blink = BlinkAnalyzer()
+                    blink.setResultListener { result -> hudGaze?.show(result) }
+                    Evs.eyeTrackerService.registerAnalyzer(blink)
+                    blinkAnalyzer = blink
+
+                    "Eye analyzers running: left/right + blink"
+                }.fold(::setLastAction) { setLastAction("Eye tracker error: ${it.message}") }
+            }
+        }
+    }
+
+    /**
+     * Reads a bundled clip.
+     *
+     * Compose resources are the standard place for sample content, and reading them is a
+     * suspend call - which is why the video action launches a coroutine rather than blocking
+     * the SDK thread on file I/O.
+     */
+    @OptIn(ExperimentalResourceApi::class)
+    private suspend fun readClipBytes(path: String): ByteArray =
+        withContext(Dispatchers.Default) { Res.readBytes(path) }
+
+    private fun stopGazeAnalyzers() {
+        gazeAnalyzer?.let { runCatching { Evs.eyeTrackerService.unregisterAnalyzer(it) } }
+        blinkAnalyzer?.let { runCatching { Evs.eyeTrackerService.unregisterAnalyzer(it) } }
+        gazeAnalyzer = null
+        blinkAnalyzer = null
+        // Leaving it enabled keeps the eye camera running for nobody.
+        runCatching { Evs.eyeTrackerService.disableEyeTracker() }
     }
 
 
@@ -516,6 +851,13 @@ class Mav2ComposeController {
         if (!listenerRegistered) {
             Evs.glassesService.registerConnectionListener(connectionListener)
             listenerRegistered = true
+        }
+    }
+
+    private fun ensureAudioStreamListenerRegistered() {
+        if (!audioStreamRegistered) {
+            Evs.audioService.registerStreamListener(audioStreamListener)
+            audioStreamRegistered = true
         }
     }
 
@@ -548,7 +890,23 @@ class Mav2ComposeController {
     private fun refreshServicesState() {
         if (!Evs.wasInitialized()) return
         val brightness = runCatching { Evs.displayService.getBrightness() }.getOrDefault(0)
-        state = state.copy(services = state.services.copy(brightness = brightness))
+        // fwVersion() reads 0 until the glasses have reported their system status.
+        val firmware = runCatching { Evs.glassesService.fwVersion() }.getOrDefault("0")
+            .let { if (it == "0") "—" else "v$it" }
+        // getAvailableVersions() is everything bundled with the SDK; getVersionToInstall() is the
+        // newest of those these glasses may take, or null when they are already current.
+        val latestOta = runCatching {
+            val latest = Evs.otaService.getAvailableVersions().maxByOrNull { it.version }
+            val toInstall = Evs.otaService.getVersionToInstall()
+            when {
+                latest == null -> "none bundled"
+                toInstall != null -> "v${toInstall.version} (${toInstall.releaseDate}) - ready to install"
+                else -> "v${latest.version} (${latest.releaseDate}) - up to date"
+            }
+        }.getOrDefault("—")
+        state = state.copy(
+            services = state.services.copy(brightness = brightness, glassesFirmware = firmware, latestOta = latestOta)
+        )
         hudServices?.updateAll(state.services)
     }
 
@@ -559,7 +917,7 @@ class Mav2ComposeController {
                 delay(1000)
                 val mic = micBytesAccumulator.toInt(); micBytesAccumulator = 0L
                 val cam = aiVisionBytesAccumulator.toInt(); aiVisionBytesAccumulator = 0L
-                val fps = runCatching { Evs.visionService.getFps() }.getOrDefault(0f)
+                val fps = runCatching { Evs.visionService.getReceivedFps() }.getOrDefault(0f)
                 state = state.copy(streams = state.streams.copy(micBytesPerSec = mic, aiVisionBytesPerSec = cam, aiVisionFps = fps))
                 hudAudioAiVision?.updateMic(state.streams.micOn, mic)
                 hudAudioAiVision?.updateAiVision(state.streams.aiVisionOn, cam, fps)
@@ -582,12 +940,14 @@ class Mav2ComposeController {
 
 internal fun formatDeg(v: Float): String = "${v.roundToInt()}°"
 
-private fun touchLabel(touch: Touch): String {
+private fun touchLabel(touch: M2Touch): String {
     return when (touch) {
-        Touch.Tap -> "tap"
-        Touch.LongTap -> "long-tap"
-        Touch.Forward -> "forward"
-        Touch.Backward -> "backward"
+        M2Touch.Tap -> "tap"
+        M2Touch.LongTap -> "long-tap"
+        M2Touch.Forward -> "forward"
+        M2Touch.Backward -> "backward"
+        M2Touch.Down -> "down"
+        M2Touch.Up -> "up"
     }
 }
 
@@ -679,10 +1039,15 @@ internal class UikitHudScreen(private val onCount: (Int) -> Unit) :
     )
     fun addText() = place(M2Text("T${shapes.size}").apply { setXY(nextX, nextY); setColor(M2Color.White); setFont(M2FontResource.fontSmall) })
 
+    /** Alternates the two logo colours, so repeated taps show more than one cached image. */
+    private var nextImageIsYellow = true
+
     fun addImage() {
         runCatching {
+            val file = if (nextImageIsYellow) "images/everysight_yellow.png" else "images/everysight_white.png"
+            nextImageIsYellow = !nextImageIsYellow
             place(
-                M2Image(M2ImageFile("images/apple.png", CacheScope.CachedManualDelete)).apply {
+                M2Image(M2ImageFile(file, M2CacheScope.CachedManualDelete)).apply {
                     setDimensions(nextX, nextY, UIKIT_IMAGE_SIZE, UIKIT_IMAGE_SIZE)
                 }
             )
@@ -731,19 +1096,21 @@ internal class LosHudScreen(private val onTouchEvent: (String) -> Unit) :
     override fun onCreate() {
         add(M2RectFilled(M2Color.Black).apply { setDimensions(0f, 0f, HUD_WIDTH, HUD_HEIGHT) })
         add(M2RectOutline(M2Color.White).apply { setDimensions(8f, 8f, HUD_WIDTH - 16f, HUD_HEIGHT - 16f); setStyle(2f) })
-        add(M2Text("LOS + Touch").apply { setXY(20f, 18f); setColor(M2Color.White); setScale(0.95f) })
+        add(M2Text("LOS + M2Touch").apply { setXY(20f, 18f); setColor(M2Color.White); setScale(0.95f) })
         txtLos.setXY(20f, 70f); add(txtLos)
         txtYpr.setXY(20f, 110f); add(txtYpr)
         txtTouch.setXY(20f, 170f); add(txtTouch)
     }
 
-    override fun onTouch(touch: Touch) {
+    override fun onTouch(touch: M2Touch) {
         super.onTouch(touch)
         val name = when (touch) {
-            Touch.Tap -> "tap"
-            Touch.LongTap -> "long-tap"
-            Touch.Forward -> "forward"
-            Touch.Backward -> "backward"
+            M2Touch.Tap -> "tap"
+            M2Touch.LongTap -> "long-tap"
+            M2Touch.Forward -> "forward"
+            M2Touch.Backward -> "backward"
+            M2Touch.Down -> "down"
+            M2Touch.Up -> "up"
         }
         runCatching { txtTouch.setText("touch: $name") }
         onTouchEvent(name)
@@ -778,6 +1145,6 @@ internal class ServicesHudScreen :
 
     fun updateAll(s: Mav2ComposeController.ServicesState) {
         runCatching { txtBrightness.setText("brightness: ${s.brightness}") }
-        runCatching { txtOta.setText("ota: ${s.otaSummary}") }
+        runCatching { txtOta.setText("glasses ${s.glassesFirmware}   latest ota ${s.latestOta.substringBefore(' ')}") }
     }
 }

@@ -20,6 +20,8 @@
     <string>1</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>This app streams the phone camera to the glasses in the Video sample.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>This app uses Bluetooth to scan and connect to Maverick2 glasses.</string>
     <key>NSBluetoothPeripheralUsageDescription</key>

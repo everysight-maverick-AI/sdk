@@ -12,9 +12,9 @@ package com.everysight.samples.kmpcompose
 
 import com.everysight.mav2.sdk.Evs
 import com.everysight.mav2.sdk.resources.M2FontResource
-import com.everysight.mav2.sdk.uikit.animators.AnimatorRepeat
+import com.everysight.mav2.sdk.uikit.animators.M2AnimatorRepeat
 import com.everysight.mav2.sdk.uikit.animators.ext.translateXBy
-import com.everysight.mav2.sdk.uikit.data.Align
+import com.everysight.mav2.sdk.uikit.data.M2Align
 import com.everysight.mav2.sdk.uikit.drawables.M2EllipseFilled
 import com.everysight.mav2.sdk.uikit.drawables.M2Line
 import com.everysight.mav2.sdk.uikit.drawables.M2RectFilled
@@ -133,7 +133,7 @@ class EverysightSampleHomeScreen : M2Screen(width = 420f, height = 300f, tag = "
             setFont(M2FontResource.fontSmall)
             setScale(1.1f)
             setColor(M2Color.PureCyan)
-            setAlign(Align.CenterBoth)
+            setAlign(M2Align.CenterBoth)
             setXY(cx, height / 2f - 62f)
             addTo(this@EverysightSampleHomeScreen)
         }
@@ -142,7 +142,7 @@ class EverysightSampleHomeScreen : M2Screen(width = 420f, height = 300f, tag = "
             setText("SDK SAMPLE")
             setFont(M2FontResource.fontSmall)
             setColor(M2Color.White.withAlpha(180u))
-            setAlign(Align.CenterBoth)
+            setAlign(M2Align.CenterBoth)
             setXY(cx, titleText.getBottomY() + 10f)
             addTo(this@EverysightSampleHomeScreen)
         }
@@ -152,7 +152,7 @@ class EverysightSampleHomeScreen : M2Screen(width = 420f, height = 300f, tag = "
             setScale(0.8f)
             setFont(M2FontResource.fontSmall)
             setColor(M2Color.White.withAlpha(185u))
-            setAlign(Align.CenterBoth)
+            setAlign(M2Align.CenterBoth)
             setXY(cx, subtitleText.getBottomY() + 18f)
             addTo(this@EverysightSampleHomeScreen)
         }
@@ -160,10 +160,10 @@ class EverysightSampleHomeScreen : M2Screen(width = 420f, height = 300f, tag = "
     }
 
     private fun startEntranceAnimations() {
-        barLeft?.translateXBy(2600, 12f, repeat = AnimatorRepeat.RepeatBack, apply = true)?.start()
-        barRight?.translateXBy(2900, -12f, repeat = AnimatorRepeat.RepeatBack, apply = true)?.start()
-        scanGlowTop?.translateXBy(2100, 190f, repeat = AnimatorRepeat.RepeatBack, apply = true)?.start()
-        scanGlowBottom?.translateXBy(2400, 160f, repeat = AnimatorRepeat.RepeatBack, apply = true)?.start()
+        barLeft?.translateXBy(2600, 12f, repeat = M2AnimatorRepeat.RepeatBack, apply = true)?.start()
+        barRight?.translateXBy(2900, -12f, repeat = M2AnimatorRepeat.RepeatBack, apply = true)?.start()
+        scanGlowTop?.translateXBy(2100, 190f, repeat = M2AnimatorRepeat.RepeatBack, apply = true)?.start()
+        scanGlowBottom?.translateXBy(2400, 160f, repeat = M2AnimatorRepeat.RepeatBack, apply = true)?.start()
     }
 
 }

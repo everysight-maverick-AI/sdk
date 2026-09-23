@@ -13,6 +13,7 @@ audio, AIVision, LOS sensors, 3D demos, OTA/display probes, and the SDK preview.
 - Add and remove SDK UIKit drawables on a glasses HUD screen.
 - Run a simple animator and manage drawable placement in a grid.
 - Toggle microphone and AIVision streams and display live rates.
+- Open the camera lab and drive every capture option while frames arrive.
 - Toggle LOS sensors and touch input.
 - Launch LiveAI-inspired 3D, dice, and 3D picture demos.
 - Probe display brightness and OTA availability.
@@ -50,6 +51,10 @@ xcodebuild -project iosApp/KmpComposeTestIosApp.xcodeproj -scheme KmpComposeTest
   actions.
 - `composeApp/src/commonMain/.../LosDemoScreens.kt` contains the 3D object, dice,
   and 3D picture demos adapted for this public sample.
+- `composeApp/src/commonMain/.../CameraLabScreen.kt` is the camera lab: every
+  `M2AIVisionService.startCapture` option as a live control over the preview
+  (mode, resolution, crop and gaze window, exposure, quality or bitrate target,
+  rate). `CameraLab.kt` is the smallest complete client of the vision service.
 - `composeApp/src/androidMain/.../MainActivity.kt` initializes the SDK on Android
   and provides BLE permission handling.
 - `composeApp/src/iosMain/.../MainViewController.kt` hosts the shared Compose UI

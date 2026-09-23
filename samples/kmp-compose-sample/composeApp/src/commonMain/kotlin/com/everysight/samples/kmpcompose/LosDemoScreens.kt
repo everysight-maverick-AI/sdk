@@ -9,26 +9,26 @@
 package com.everysight.samples.kmpcompose
 
 import com.everysight.mav2.sdk.Evs
-import com.everysight.mav2.sdk.resources.CacheScope
+import com.everysight.mav2.sdk.resources.M2CacheScope
 import com.everysight.mav2.sdk.resources.M2FontResource
 import com.everysight.mav2.sdk.resources.M2ImageFile
 import com.everysight.mav2.sdk.services.IM2SensorsEvents
 import com.everysight.mav2.sdk.services.data.M2Quaternion
-import com.everysight.mav2.sdk.uikit.animators.AnimatorRepeat
+import com.everysight.mav2.sdk.uikit.animators.M2AnimatorRepeat
 import com.everysight.mav2.sdk.uikit.animators.ext.animateTransformRx
 import com.everysight.mav2.sdk.uikit.animators.ext.animateTransformRy
 import com.everysight.mav2.sdk.uikit.animators.ext.animateTransformRz
 import com.everysight.mav2.sdk.uikit.ar.M2ArFactory3D
 import com.everysight.mav2.sdk.uikit.ar.M2ArLight
 import com.everysight.mav2.sdk.uikit.base.M2ArScene
-import com.everysight.mav2.sdk.uikit.data.Align
+import com.everysight.mav2.sdk.uikit.data.M2Align
 import com.everysight.mav2.sdk.uikit.data.M2DeviceType
 import com.everysight.mav2.sdk.uikit.data.M2ImuCalibrationState
-import com.everysight.mav2.sdk.uikit.data.Touch
+import com.everysight.mav2.sdk.uikit.data.M2Touch
 import com.everysight.mav2.sdk.uikit.drawables.M2Image
 import com.everysight.mav2.sdk.uikit.drawables.M2Text
 import com.everysight.mav2.sdk.uikit.screens.M2FullScreen
-import com.everysight.mav2.sdk.uikit.screens.RenderingRate
+import com.everysight.mav2.sdk.uikit.screens.M2RenderingRate
 import com.everysight.mav2.sdk.utils.M2Color
 import com.everysight.mav2.sdk.utils.M2Colors
 import com.everysight.mav2.sdk.utils.mat.M2Mat
@@ -69,7 +69,7 @@ internal class Los3dDemoScreen : M2FullScreen("Los3dDemoScreen") {
         super.onCreate()
         gotQuat = false
         lastCalibState = null
-        setRenderingRate(RenderingRate.Fast)
+        setRenderingRate(M2RenderingRate.Fast)
         Evs.sensorsService.registerListener(sensorsEvents)
         Evs.glassesService.enableDevice(M2DeviceType.Touch, true)
         Evs.glassesService.enableDevice(M2DeviceType.Turbo, true)
@@ -77,7 +77,7 @@ internal class Los3dDemoScreen : M2FullScreen("Los3dDemoScreen") {
         message.apply {
             setFont(M2FontResource.fontSmall)
             setText("Waiting for sensors")
-            setAlign(Align.CenterBoth)
+            setAlign(M2Align.CenterBoth)
             setColor(M2Color.Green)
             setXY(width / 2f, height / 2f)
             addTo(this@Los3dDemoScreen)
@@ -92,9 +92,9 @@ internal class Los3dDemoScreen : M2FullScreen("Los3dDemoScreen") {
         super.onRelease()
     }
 
-    override fun onTouch(touch: Touch) {
+    override fun onTouch(touch: M2Touch) {
         super.onTouch(touch)
-        if (touch == Touch.Tap) addNextObject()
+        if (touch == M2Touch.Tap) addNextObject()
     }
 
     private fun addNextObject() {
@@ -122,9 +122,9 @@ internal class Los3dDemoScreen : M2FullScreen("Los3dDemoScreen") {
             )
             setLightSource(light)
             if (getColor() == null) setColor(M2Colors.random())
-            animateTransformRx(2000, 180f, AnimatorRepeat.RepeatBack).start()
-            animateTransformRy(2000, 180f, AnimatorRepeat.RepeatBack).start()
-            animateTransformRz(2000, 180f, AnimatorRepeat.RepeatBack).start()
+            animateTransformRx(2000, 180f, M2AnimatorRepeat.RepeatBack).start()
+            animateTransformRy(2000, 180f, M2AnimatorRepeat.RepeatBack).start()
+            animateTransformRz(2000, 180f, M2AnimatorRepeat.RepeatBack).start()
         }
         add(scene)
         loadedItems += scene
@@ -176,7 +176,7 @@ internal class Los3dDemoScreen : M2FullScreen("Los3dDemoScreen") {
                             .build()
                     )
                 }
-                    .animateTransformRz(5000L, 360f, AnimatorRepeat.Repeat)
+                    .animateTransformRz(5000L, 360f, M2AnimatorRepeat.Repeat)
                     .start()
                 add(mesh)
             }
@@ -205,12 +205,12 @@ internal class Los3dDemoScreen : M2FullScreen("Los3dDemoScreen") {
 /** Displays sample photos as line-of-sight billboards around the current view. */
 internal class Los3dPicturesDemoScreen : M2FullScreen("Los3dPicturesDemoScreen") {
     private val files = arrayOf(
-        M2ImageFile("playground/pic1.jpg", CacheScope.CachedAutoReleaseWhenUnused, "Sunset"),
-        M2ImageFile("playground/pic2.jpg", CacheScope.CachedAutoReleaseWhenUnused, "Valley"),
-        M2ImageFile("playground/pic3.jpg", CacheScope.CachedAutoReleaseWhenUnused, "Hotel View"),
-        M2ImageFile("playground/pic4.jpg", CacheScope.CachedAutoReleaseWhenUnused, "Night"),
-        M2ImageFile("playground/pic5.jpg", CacheScope.CachedAutoReleaseWhenUnused, "Lake"),
-        M2ImageFile("playground/pic6.jpg", CacheScope.CachedAutoReleaseWhenUnused, "Desert")
+        M2ImageFile("playground/pic1.jpg", M2CacheScope.CachedAutoReleaseWhenUnused, "Sunset"),
+        M2ImageFile("playground/pic2.jpg", M2CacheScope.CachedAutoReleaseWhenUnused, "Valley"),
+        M2ImageFile("playground/pic3.jpg", M2CacheScope.CachedAutoReleaseWhenUnused, "Hotel View"),
+        M2ImageFile("playground/pic4.jpg", M2CacheScope.CachedAutoReleaseWhenUnused, "Night"),
+        M2ImageFile("playground/pic5.jpg", M2CacheScope.CachedAutoReleaseWhenUnused, "Lake"),
+        M2ImageFile("playground/pic6.jpg", M2CacheScope.CachedAutoReleaseWhenUnused, "Desert")
     )
     private val pointingLaserEyeCoords = floatArrayOf(0f, 0f, -1f)
     private val pointingLaserWorldCoords = FloatArray(3)
@@ -229,7 +229,7 @@ internal class Los3dPicturesDemoScreen : M2FullScreen("Los3dPicturesDemoScreen")
         gotQuat = false
         picturesAdded = false
         lastCalibState = null
-        setRenderingRate(RenderingRate.Fast)
+        setRenderingRate(M2RenderingRate.Fast)
         Evs.sensorsService.registerListener(sensorsEvents)
         Evs.glassesService.enableDevice(M2DeviceType.Touch, true)
         showMessage("Waiting for sensors")
@@ -243,9 +243,9 @@ internal class Los3dPicturesDemoScreen : M2FullScreen("Los3dPicturesDemoScreen")
         super.onRelease()
     }
 
-    override fun onTouch(touch: Touch) {
+    override fun onTouch(touch: M2Touch) {
         super.onTouch(touch)
-        if (touch == Touch.Tap) {
+        if (touch == M2Touch.Tap) {
             if (!gotQuat) return
             if (picturesAdded) {
                 removeAll()
@@ -261,7 +261,7 @@ internal class Los3dPicturesDemoScreen : M2FullScreen("Los3dPicturesDemoScreen")
         message = M2Text().apply {
             setFont(M2FontResource.fontSmall)
             setText(text)
-            setAlign(Align.CenterBoth)
+            setAlign(M2Align.CenterBoth)
             setColor(M2Color.Green)
             setXY(width / 2f, height / 2f)
             addTo(this@Los3dPicturesDemoScreen)

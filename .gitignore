@@ -26,7 +26,11 @@ artifacts/
 **/.idea/
 **/.idea/**
 
+# Dev certificates
+**/66.dev.cert
+
 # SDK key (do not commit, all locations)
 **/sdk.key
 
+samples/android-native/.run
 samples/ios-native/.build

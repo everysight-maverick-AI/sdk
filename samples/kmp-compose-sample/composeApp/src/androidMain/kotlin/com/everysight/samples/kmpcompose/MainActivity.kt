@@ -28,7 +28,7 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 class MainActivity : ComponentActivity() {
     private var pendingAfterPermission: (() -> Unit)? = null
 
-    private val blePermissionLauncher = registerForActivityResult(
+    private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grantResults ->
         val granted = grantResults.values.all { it }
@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "Bluetooth permissions are required to scan for glasses.",
+                "Bluetooth is required to scan for glasses, and the camera for the Video sample.",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -65,6 +65,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Ask at startup, not only when a button first needs the hardware. Neither a denied
+        // BLUETOOTH_SCAN nor a denied CAMERA raises anything - the scan comes back empty and the
+        // video encoder produces no frames - so a user who never saw the prompt concludes the
+        // glasses are broken. The per-action gates below stay, as the backstop for a permission
+        // revoked while the app is running.
+        ensurePermissionsThen(requiredBlePermissions() + Manifest.permission.CAMERA) { }
         val resolvedDependencies = readResolvedDependencyVersions(this)
         setContent {
             App(
@@ -80,8 +87,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun ensureBlePermissionsThen(action: () -> Unit) {
-        val missing = requiredBlePermissions().filter { permission ->
+    private fun ensureBlePermissionsThen(action: () -> Unit) =
+        ensurePermissionsThen(requiredBlePermissions(), action)
+
+    private fun ensurePermissionsThen(permissions: List<String>, action: () -> Unit) {
+        val missing = permissions.filter { permission ->
             ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isEmpty()) {
@@ -89,7 +99,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         pendingAfterPermission = action
-        blePermissionLauncher.launch(missing.toTypedArray())
+        permissionLauncher.launch(missing.toTypedArray())
     }
 
     private fun requiredBlePermissions(): List<String> {

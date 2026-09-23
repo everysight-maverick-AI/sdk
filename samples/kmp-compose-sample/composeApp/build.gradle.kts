@@ -6,12 +6,25 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+    // Wires TensorFlowLiteC.xcframework (eye-tracker dependency) into iOS K/N
+    // link + Xcode embed steps. Required only for iOS targets; no-op on Android.
+    // Version is supplied centrally by settings.gradle.kts so a single
+    // -PsdkVersion / MAV2_SDK_VERSION override re-points the SDK + plugin
+    // together.
+    id("com.everysight.mav2.sdk-ios")
 }
 
 val sdkVersion: String = providers.gradleProperty("sdkVersion")
     .orElse(providers.environmentVariable("MAV2_SDK_VERSION"))
     .orNull
     ?: error("sdkVersion is not set. Provide it via gradle.properties (sdkVersion=X.Y.Z), -PsdkVersion=X.Y.Z, or the MAV2_SDK_VERSION env var. The build_system auto-syncs gradle.properties on each release.")
+
+mavericAiSdkIos {
+    // Keep the helper-supplied TFLite version in lock-step with the SDK
+    // version; the SDK and the iOS plugin are published together so they
+    // always match.
+    tfliteVersion.set(sdkVersion)
+}
 
 kotlin {
     androidTarget {
@@ -110,12 +123,6 @@ android {
 
     flavorDimensions += "device"
     productFlavors {
-        create("wear") {
-            dimension = "device"
-            applicationIdSuffix = ".wear"
-            versionNameSuffix = "-wear"
-            manifestPlaceholders["sampleAppLabel"] = "MAV2 KMP Compose Wear Sample"
-        }
         create("phone") {
             dimension = "device"
         }

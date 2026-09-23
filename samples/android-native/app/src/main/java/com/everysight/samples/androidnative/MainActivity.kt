@@ -1,9 +1,22 @@
 /*
  * Created by Everysight LTD.
  *
- * Android native Maverick AI sample. This single activity shows the minimum
- * SDK lifecycle for Android: initialize, request BLE permissions, configure,
- * connect, add a simple HUD screen, and cleanly disconnect.
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │  This sample is the native Android PROJECT CONFIGURATION, and no more.   │
+ * │                                                                          │
+ * │  It shows how to get the SDK into a plain Android app and reach the      │
+ * │  glasses: the Maven dependency, the API key, the resources resolver,     │
+ * │  init, runtime BLE permissions, configure, connect, and one HUD screen   │
+ * │  to prove the link works.                                                │
+ * │                                                                          │
+ * │  For what the SDK can DRAW and DO — video, gradients, accelerating       │
+ * │  animators, text effects, audio, the eye tracker — read                  │
+ * │  `kmp-compose-sample`. That is the one full app, and every feature is    │
+ * │  demonstrated there once rather than in three places.                    │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * The lifecycle below, in order: initialize, request BLE permissions, configure,
+ * connect, add a HUD screen, disconnect cleanly.
  */
 
 package com.everysight.samples.androidnative
@@ -25,13 +38,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -59,8 +75,8 @@ import androidx.core.content.ContextCompat
 import com.everysight.mav2.sdk.Evs
 import com.everysight.mav2.sdk.init
 import com.everysight.mav2.sdk.services.IM2GlassesConnectionEvents
-import com.everysight.mav2.sdk.uikit.data.ConnectionStatus
-import com.everysight.mav2.sdk.uikit.data.M2ShowUIOption
+import com.everysight.mav2.sdk.uikit.data.M2ConnectionStatus
+import com.everysight.mav2.sdk.uikit.data.M2AppUIOption
 import com.everysight.mav2.sdk.uikit.drawables.M2RectFilled
 import com.everysight.mav2.sdk.uikit.drawables.M2RectOutline
 import com.everysight.mav2.sdk.uikit.drawables.M2Text
@@ -120,24 +136,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private val connectionListener = object : IM2GlassesConnectionEvents {
-        override fun onConnectionStatusChanged(status: ConnectionStatus) {
+        override fun onConnectionStatusChanged(status: M2ConnectionStatus) {
             Log.i("Mav2Sample", "status=$status")
             val statusLabel = when (status) {
-                ConnectionStatus.Ready -> "ready"
-                ConnectionStatus.Connected -> "connected"
-                ConnectionStatus.Connecting -> if (uiState.isReady) "ready" else "connecting"
-                ConnectionStatus.Disconnected, ConnectionStatus.BluetoothOff, ConnectionStatus.Failed, ConnectionStatus.AuthFailed -> "disconnected"
+                M2ConnectionStatus.Ready -> "ready"
+                M2ConnectionStatus.Connected -> "connected"
+                M2ConnectionStatus.Connecting -> if (uiState.isReady) "ready" else "connecting"
+                M2ConnectionStatus.Disconnected, M2ConnectionStatus.BluetoothOff, M2ConnectionStatus.Failed, M2ConnectionStatus.AuthFailed -> "disconnected"
             }
             val isConnected = when (status) {
-                ConnectionStatus.Ready -> true
-                ConnectionStatus.Connected -> true
-                ConnectionStatus.Connecting -> false
-                ConnectionStatus.Disconnected, ConnectionStatus.BluetoothOff, ConnectionStatus.Failed, ConnectionStatus.AuthFailed -> false
+                M2ConnectionStatus.Ready -> true
+                M2ConnectionStatus.Connected -> true
+                M2ConnectionStatus.Connecting -> false
+                M2ConnectionStatus.Disconnected, M2ConnectionStatus.BluetoothOff, M2ConnectionStatus.Failed, M2ConnectionStatus.AuthFailed -> false
             }
             uiState = uiState.copy(
                 sdkStatus = statusLabel,
                 isConnected = isConnected,
-                isReady = ConnectionStatus.Ready == status
+                isReady = M2ConnectionStatus.Ready == status
             )
             refreshConfiguredStateIfInitialized()
         }
@@ -161,6 +177,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Ask at startup, not only when a button first needs the radio. A denied BLUETOOTH_SCAN
+        // does not raise anything - the scan simply comes back empty - so a user who never saw
+        // the prompt concludes the glasses are broken. The per-action gates below stay, as the
+        // backstop for a permission revoked while the app is running.
+        ensureBlePermissionsThen { }
         setContent {
             MaterialTheme(colorScheme = EverysightDarkColors) {
                 Surface(modifier = Modifier.fillMaxSize(), color = EsBrand.DarkBlue) {
@@ -175,12 +197,12 @@ class MainActivity : ComponentActivity() {
                         onConfigure = {
                             ensureBlePermissionsThen {
                                 Evs.glassesService.disconnect()
-                                Evs.showUI(M2ShowUIOption.DefaultConfigure)
+                                Evs.showAppUI(M2AppUIOption.DefaultConfigure)
                                 uiState = uiState.copy(sdkStatus = "disconnected", isConnected = false, isReady = false)
                                 refreshConfiguredState()
                             }
                         },
-                        onShowAdjust = { Evs.showUI(M2ShowUIOption.DefaultAdjust) },
+                        onShowAdjust = { Evs.showAppUI(M2AppUIOption.DefaultAdjust) },
                         onToggleConnect = ::toggleConnect,
                         onToggleHud = ::toggleHud,
                     )
@@ -209,7 +231,10 @@ class MainActivity : ComponentActivity() {
             Evs.glassesService.disconnect()
             uiState = uiState.copy(sdkStatus = "disconnected", isConnected = false, isReady = false)
         } else {
-            connectGlasses()
+            // Connecting reaches the radio just like scanning does, so it needs the same
+            // permissions. Skipping this gate is silent on Android 12+: with BLUETOOTH_SCAN
+            // denied there is no prompt and no error, only a scan that finds nothing.
+            ensureBlePermissionsThen { connectGlasses() }
         }
     }
 
@@ -288,32 +313,42 @@ private fun SampleScreen(
     onToggleHud: () -> Unit,
 ) {
     val isSdkInitialized = Evs.wasInitialized()
-    Column(
+    // The background fills the whole window, including behind the status and navigation bars,
+    // and safeDrawing then insets the CONTENT. Doing it the other way round leaves unpainted
+    // strips at the edges; doing neither - which is what this sample did - put the header under
+    // the status bar, because targetSdk 36 draws edge-to-edge and there is no opting out.
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(EsBrand.DarkBlue)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        EsHeader(subtitle = "Maverick AI · Android Native Sample")
-        EsStatusCard(uiState)
-        EsToggleButton(
-            if (isSdkInitialized) "1) SDK initialized" else "1) Init SDK",
-            on = isSdkInitialized,
-            enabled = !isSdkInitialized,
-            onClick = onInit
-        )
-        EsGlassCard {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                EsSecondaryButton("Configure", onConfigure, Modifier.weight(1f), enabled = isSdkInitialized)
-                EsSecondaryButton("Adjust", onShowAdjust, Modifier.weight(1f), enabled = isSdkInitialized)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            EsHeader(subtitle = "Maverick AI · Android Native Sample")
+            EsStatusCard(uiState)
+            EsToggleButton(
+                if (isSdkInitialized) "SDK initialized" else "Init SDK",
+                on = isSdkInitialized,
+                enabled = !isSdkInitialized,
+                onClick = onInit
+            )
+            EsGlassCard {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EsSecondaryButton("Configure", onConfigure, Modifier.weight(1f), enabled = isSdkInitialized)
+                    EsSecondaryButton("Adjust", onShowAdjust, Modifier.weight(1f), enabled = isSdkInitialized)
+                }
+                EsSecondaryButton(if (uiState.isConnected || uiState.isReady) "Disconnect" else "Connect", onToggleConnect, enabled = isSdkInitialized)
+                EsToggleButton(if (uiState.isScreenAdded) "Remove Screen" else "Add Screen", on = uiState.isScreenAdded, onClick = onToggleHud, enabled = isSdkInitialized)
             }
-            EsSecondaryButton(if (uiState.isConnected || uiState.isReady) "Disconnect" else "Connect", onToggleConnect, enabled = isSdkInitialized)
-            EsToggleButton(if (uiState.isScreenAdded) "5) Remove Screen" else "5) Add Screen", on = uiState.isScreenAdded, onClick = onToggleHud, enabled = isSdkInitialized)
+            Spacer(Modifier.height(8.dp))
+            EsFooter()
         }
-        Spacer(Modifier.height(8.dp))
-        EsFooter()
     }
 }
 

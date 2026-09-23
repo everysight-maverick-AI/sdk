@@ -13,6 +13,9 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- The phone-camera video source. Without it the encoder produces no frames and the
+         glasses simply show nothing - the SDK has no separate signal for a missing permission. -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:icon="@mipmap/ic_launcher"

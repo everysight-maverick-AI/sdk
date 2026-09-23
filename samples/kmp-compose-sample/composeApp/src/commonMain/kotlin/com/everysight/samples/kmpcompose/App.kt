@@ -12,13 +12,14 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,14 +32,17 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.PrimaryScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -52,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
@@ -61,7 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.everysight.mav2.sdk.Evs
-import com.everysight.mav2.sdk.ui.components.glasses.EvsGlassesInfo
+import com.everysight.mav2.sdk.ui.components.glasses.M2GlassesInfo
 import com.everysight.mav2.sdk.ui.components.views.M2PreviewFloating
 import com.everysight.samples.kmpcompose.generated.resources.Res
 import com.everysight.samples.kmpcompose.generated.resources.everysight_footer
@@ -103,6 +108,8 @@ private val EverysightDarkColors = darkColorScheme(
  * @param initSdk Initializes the platform SDK and installs platform resources.
  * @param stopSdk Stops the platform SDK and releases native resources.
  * @param ensureBlePermissionsThen Runs a user action after platform BLE permissions are granted.
+ *   Wrap EVERY action that reaches the radio - scanning and connecting both - because a denied
+ *   permission is silent: the scan simply returns nothing.
  */
 @Composable
 fun App(
@@ -114,8 +121,10 @@ fun App(
     var showPreview by remember { mutableStateOf(false) }
     var previewSetupPending by remember { mutableStateOf(false) }
     var showVersionInfo by remember { mutableStateOf(false) }
+    var showCameraLab by remember { mutableStateOf(false) }
     val appScope = rememberCoroutineScope()
     val controller = remember { Mav2ComposeController() }
+    val cameraLab = remember { CameraLab() }
     LaunchedEffect(controller) {
         controller.onStateChanged = { nextState -> uiState = nextState }
     }
@@ -146,9 +155,12 @@ fun App(
                     onVersionInfoClick = { showVersionInfo = true }
                 )
                 EsStatusCard(uiState = uiState)
+                // Both children are given the same explicit height. Left to themselves a Button
+                // and a Row-with-a-Checkbox measure differently - the checkbox carries a 48.dp
+                // minimum touch target - so the two sat at visibly different heights.
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     EsToggleButton(
-                        text = if (isSdkInitialized) "1) SDK initialized" else "1) Init SDK",
+                        text = if (isSdkInitialized) "SDK initialized" else "Init SDK",
                         on = isSdkInitialized,
                         enabled = !isSdkInitialized,
                         onClick = {
@@ -157,7 +169,7 @@ fun App(
                                 controller.onInitCompleted()
                             }
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(ACTION_BUTTON_HEIGHT)
                     )
                     EsPreviewToggle(
                         checked = showPreview || previewSetupPending,
@@ -180,7 +192,7 @@ fun App(
                                 if (Evs.wasInitialized()) Evs.screenService.enablePreview(false)
                             }
                         },
-                        modifier = Modifier.weight(0.62f)
+                        modifier = Modifier.weight(0.62f).height(ACTION_BUTTON_HEIGHT)
                     )
                 }
                 // SDK-provided glasses status card. The composable reads
@@ -191,66 +203,74 @@ fun App(
                 // `isSdkInitialized` so the card isn't in the tree until
                 // the SDK is up.
                 if (isSdkInitialized) {
-                    EvsGlassesInfo(
+                    M2GlassesInfo(
                         modifier = Modifier.fillMaxWidth(),
                         isClickable = true,
                         containerColor = EsBrand.DarkBlue2,
                         contentColor = EsBrand.White
                     )
                 }
+                // Three equal buttons that always fit. This row used to use fixed widths inside
+                // a horizontal scroll, which pushed "Connect" half off the screen - a scroll bar
+                // is the wrong answer for three top-level actions nobody expects to scroll for.
+                // weight(1f) each keeps them the same size at any width; autoShrink below stops
+                // the longer "Disconnect" label wrapping in the narrower box.
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     EsSecondaryButton(
                         text = "Configure",
                         onClick = { ensureBlePermissionsThen { controller.showConfigure() } },
-                        modifier = Modifier.width(136.dp),
+                        modifier = Modifier.weight(1f).height(ACTION_BUTTON_HEIGHT),
                         enabled = isSdkInitialized
                     )
                     EsSecondaryButton(
                         text = "Adjust",
                         onClick = { controller.showAdjust() },
-                        modifier = Modifier.width(112.dp),
+                        modifier = Modifier.weight(1f).height(ACTION_BUTTON_HEIGHT),
                         enabled = isSdkInitialized
                     )
                     EsSecondaryButton(
-                        // Width must fit the longer "Disconnect" label on a
-                        // single line — at 136.dp the labelLarge font wrapped
-                        // into two lines on smaller phones. The action row
-                        // already horizontal-scrolls, so a wider button never
-                        // pushes the row off-screen.
                         text = if (uiState.isConnected || uiState.isReady) "Disconnect" else "Connect",
-                        onClick = { controller.toggleConnect() },
-                        modifier = Modifier.width(168.dp),
+                        // Connecting needs the same BLE permissions as scanning. Without this
+                        // gate the app reached the radio with BLUETOOTH_SCAN still denied on
+                        // Android 12+, and the only symptom was a scan that quietly found
+                        // nothing - no prompt, no error. Disconnect needs nothing, but routing
+                        // both through one call keeps the rule simple: touch BLE, ask first.
+                        onClick = { ensureBlePermissionsThen { controller.toggleConnect() } },
+                        modifier = Modifier.weight(1f).height(ACTION_BUTTON_HEIGHT),
                         enabled = isSdkInitialized
                     )
                 }
-                EsCard {
-                    PrimaryScrollableTabRow(
-                        selectedTabIndex = uiState.selectedCategory.ordinal,
-                        containerColor = Color.Transparent,
-                        contentColor = EsBrand.Yellow,
-                        edgePadding = 0.dp
-                    ) {
-                        SanityCategory.entries.forEach { category ->
-                            Tab(
-                                selected = uiState.selectedCategory == category,
-                                onClick = { controller.selectCategory(category) },
-                                selectedContentColor = EsBrand.Yellow,
-                                unselectedContentColor = EsBrand.BlueGrey,
-                                text = {
-                                    Text(
-                                        category.title,
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-                                    )
-                                }
-                            )
-                        }
-                    }
+                // A scrollable tab row was the wrong control here. Eight tabs do not fit on a
+                // phone, and every cue that a row continues off-screen - a trailing fade
+                // included - is a cue people miss, so half the sample looked absent. A dropdown
+                // shows the whole list on one tap and says which one is current.
+                //
+                // It sits across the card's top edge: the card starts half a selector down and
+                // opens with a matching spacer, and the selector is drawn over the seam. Half
+                // in, half out - it reads as the card's handle, not as its first row.
+                Box(modifier = Modifier.fillMaxWidth()) {
+                  Column(modifier = Modifier.fillMaxWidth().padding(top = ACTION_BUTTON_HEIGHT / 2)) {
+                    EsCard {
+                    Spacer(Modifier.height(ACTION_BUTTON_HEIGHT / 2))
                     Spacer(Modifier.height(12.dp))
+                    // The lab is the biggest thing in this tab, so it leads it - above the HUD
+                    // toggle rather than under the stream rows, where it read as a footnote to
+                    // AIVision. CameraLabScreen.kt is the reference for the API, CameraLab.kt
+                    // the smallest client.
+                    if (uiState.selectedCategory == SanityCategory.AudioAiVision) {
+                        EsSecondaryButton(
+                            "Open Lab",
+                            { showCameraLab = true },
+                            Modifier.fillMaxWidth().height(ACTION_BUTTON_HEIGHT),
+                            enabled = isSdkInitialized
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        EsMutedLine("The lab drives every capture option live: mode, resolution, crop and gaze window, exposure, quality or bitrate target, rate.")
+                        Spacer(Modifier.height(12.dp))
+                    }
                     EsToggleButton(
                         text = if (uiState.isScreenAdded)
                             "Remove ${uiState.selectedCategory.title} HUD"
@@ -263,7 +283,11 @@ fun App(
                     Spacer(Modifier.height(12.dp))
                     when (uiState.selectedCategory) {
                         SanityCategory.UIKitAnimators -> UikitPanel(uiState.shapeCount, isSdkInitialized) { controller.runUikitAction(it) }
-                        SanityCategory.AudioAiVision -> AudioAiVisionPanel(uiState.streams, isSdkInitialized) { controller.runStreamAction(it) }
+                        SanityCategory.AudioAiVision -> AudioAiVisionPanel(
+                            s = uiState.streams,
+                            enabled = isSdkInitialized,
+                            onAction = { controller.runStreamAction(it) }
+                        )
                         SanityCategory.Los -> LosPanel(
                             s = uiState.streams,
                             activeLosDemo = uiState.activeLosDemo,
@@ -273,7 +297,19 @@ fun App(
                             onStopDemo = { controller.stopLosDemo() }
                         )
                         SanityCategory.Services -> ServicesPanel(uiState.services, isSdkInitialized) { controller.runServiceAction(it) }
+                        SanityCategory.Motion -> MotionPanel(isSdkInitialized) { controller.runMotionAction(it) }
+                        SanityCategory.Fills -> FillsPanel(isSdkInitialized) { controller.runFillAction(it) }
+                        SanityCategory.Video -> VideoPanel(isSdkInitialized) { controller.runVideoAction(it) }
+                        SanityCategory.Speaker -> SpeakerPanel(uiState.radioOn, isSdkInitialized) { controller.runSpeakerAction(it) }
+                        SanityCategory.Gaze -> GazePanel(isSdkInitialized) { controller.runGazeAction(it) }
                     }
+                    }
+                  }
+                  EsCategoryDropdown(
+                      selected = uiState.selectedCategory,
+                      onSelect = { controller.selectCategory(it) },
+                      modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 20.dp)
+                  )
                 }
                 EsFooter()
             }
@@ -282,7 +318,27 @@ fun App(
                     modifier = Modifier.fillMaxWidth(0.8f),
                     offsetFromTopFraction = 0.6f,
                     simTouch = true,
+                    backgroundVideoPath = null,
                     onClose = { showPreview = false }
+                )
+            }
+            // Full-screen so the frames are judged at size; closing stops capture.
+            if (showCameraLab && isSdkInitialized) {
+                // The lab is a boolean in composition, not a navigation destination, so on
+                // Android the back gesture reached the activity and closed the app. Route it to
+                // the same exit the Close button uses - and to stop(), or the capture would
+                // outlive the screen.
+                PlatformBackHandler(enabled = true) {
+                    cameraLab.stop()
+                    showCameraLab = false
+                }
+                CameraLabScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    lab = cameraLab,
+                    onClose = {
+                        cameraLab.stop()
+                        showCameraLab = false
+                    }
                 )
             }
             if (showVersionInfo) {
@@ -364,6 +420,14 @@ private fun EsVersionInfoDialog(
 }
 
 private const val PREVIEW_SCREEN_SETUP_DELAY_MS = 650L
+
+/**
+ * One height for every top-level action control.
+ *
+ * A Button and a Row-with-a-Checkbox measure differently on their own, so without this the
+ * init button and the preview toggle sat at different heights on the same line.
+ */
+private val ACTION_BUTTON_HEIGHT = 52.dp
 
 @Composable
 private fun EsHeader(
@@ -500,18 +564,82 @@ private fun EsPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifie
 }
 
 @Composable
+private fun EsCategoryDropdown(
+    selected: SanityCategory,
+    onSelect: (SanityCategory) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth().height(ACTION_BUTTON_HEIGHT),
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                // Opaque, unlike the card behind it: a translucent selector over the card's own
+                // translucent edge reads as a smudge rather than a control.
+                containerColor = EsBrand.DarkBlue,
+                contentColor = EsBrand.Yellow
+            )
+        ) {
+            Text(
+                selected.title,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = EsBrand.Yellow)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = EsBrand.DarkBlue2
+        ) {
+            SanityCategory.entries.forEach { category ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            category.title,
+                            color = if (category == selected) EsBrand.Yellow else EsBrand.White,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelect(category)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EsSecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
         shape = RoundedCornerShape(12.dp),
+        // A button's default content padding is 24.dp a side. Three of these across an iPhone
+        // leaves under 70.dp for the label, so "Configure" and "Disconnect" arrived clipped to
+        // "Configu" and "Disconr" - softWrap = false turns an overflow into a truncation, it
+        // does not create room. Give the text the padding back instead.
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = EsBrand.DarkBlue2,
             contentColor = EsBrand.White
         )
     ) {
-        Text(text, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelLarge)
+        Text(
+            text,
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelMedium
+        )
     }
 }
 
@@ -567,10 +695,13 @@ private fun EsPreviewToggle(
             .clip(RoundedCornerShape(12.dp))
             .background(EsBrand.DarkBlue2)
             .border(1.dp, EsBrand.GlassBorder, RoundedCornerShape(12.dp))
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
+        // The checkbox carries a 48.dp minimum touch target and the label sat next to it with
+        // its own padding, which on an iPhone left "Preview" too little width and it wrapped to
+        // two lines inside a fixed-height box. The padding goes, and the label refuses to wrap.
         Checkbox(
             checked = checked,
             enabled = enabled,
@@ -579,7 +710,9 @@ private fun EsPreviewToggle(
         Text(
             text = "Preview",
             color = if (enabled) EsBrand.White else EsBrand.BlueGrey,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+            maxLines = 1,
+            softWrap = false,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
         )
     }
 }
@@ -607,8 +740,118 @@ private fun UikitPanel(shapeCount: Int, enabled: Boolean, onAction: (UikitAction
     }
 }
 
+/**
+ * Accelerating animators.
+ *
+ * Every button here sends exactly one instruction; the glasses do the rest without further
+ * traffic. Bounce is the one that never ends on its own.
+ */
 @Composable
-private fun AudioAiVisionPanel(s: Mav2ComposeController.StreamsState, enabled: Boolean, onAction: (StreamAction) -> Unit) {
+private fun MotionPanel(enabled: Boolean, onAction: (MotionDemo) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EsMutedLine("One packet per gesture — the glasses walk the curve themselves. Needs glasses v47+.")
+        MotionDemo.entries.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { demo ->
+                    EsSecondaryButton(demo.label, { onAction(demo) }, Modifier.weight(1f), enabled = enabled)
+                }
+                // Keep the last row's buttons the same width as the full rows above it.
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * The two fill slots, and what text can do with one.
+ *
+ * A shape holds a gradient and a texture independently; the "Texture + fade" entry is the
+ * combination that older SDKs could not express.
+ */
+@Composable
+private fun FillsPanel(enabled: Boolean, onAction: (FillDemo) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EsMutedLine("Gradient and texture are separate slots and compose. Black is not drawable — a fade goes to transparent.")
+        FillDemo.entries.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { demo ->
+                    EsSecondaryButton(demo.label, { onAction(demo) }, Modifier.weight(1f), enabled = enabled)
+                }
+                repeat(2 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * Video sources.
+ *
+ * The same [M2VideoClip] plays all three; only the source object differs. Screen mirroring is a
+ * fifth source and is not shown here — on iOS it needs a Broadcast Extension in the host app,
+ * which is project configuration rather than SDK usage.
+ */
+@Composable
+private fun VideoPanel(enabled: Boolean, onAction: (VideoAction) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EsMutedLine("H264 baseline only, and within the M2VideoLimits budget — a source that does not fit is refused at attach.")
+        EsSecondaryButton("Video clip", { onAction(VideoAction.PlayClip) }, Modifier.fillMaxWidth(), enabled = enabled)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EsSecondaryButton("Phone camera", { onAction(VideoAction.PlayCamera) }, Modifier.weight(1f), enabled = enabled)
+            EsSecondaryButton("Weather cam", { onAction(VideoAction.PlayWeatherCam) }, Modifier.weight(1f), enabled = enabled)
+        }
+        EsSecondaryButton("Play / pause", { onAction(VideoAction.TogglePlayback) }, Modifier.fillMaxWidth(), enabled = enabled)
+    }
+}
+
+/**
+ * The glasses speaker.
+ *
+ * A bundled file and an internet radio station, which are the two shapes the audio service
+ * takes: a finite resource it uploads and caches, and an endless stream it pulls and
+ * transcodes to LC3 on the phone.
+ */
+@Composable
+private fun SpeakerPanel(radioOn: Boolean, enabled: Boolean, onAction: (SpeakerAction) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EsMutedLine("A cached sound plays instantly after the first upload; a stream starts when the first packet lands, not when openStream returns.")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EsSecondaryButton("Bundled sound", { onAction(SpeakerAction.PlaySound) }, Modifier.weight(1f), enabled = enabled)
+            // A toggle, not a one-shot: it has to look on while the stream plays, or the only
+            // way to know the radio is running is to hear it.
+            EsToggleButton(
+                if (radioOn) "Stop radio" else "Internet radio",
+                on = radioOn,
+                onClick = { onAction(SpeakerAction.ToggleRadio) },
+                modifier = Modifier.weight(1f),
+                enabled = enabled
+            )
+        }
+    }
+}
+
+/**
+ * Eye-feature analyzers.
+ *
+ * Two analyzers run at once over the same frames. The SDK finds the pupil and the glint; the
+ * analyzers — written in this sample, not in the SDK — turn that into left/right and blinks.
+ */
+@Composable
+private fun GazePanel(enabled: Boolean, onAction: (GazeAction) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EsMutedLine("Left/right gaze and blink counting, from LeftRightGazeAnalyzer.kt and BlinkAnalyzer.kt")
+        // The same geometry the analyzers read, drawn as the SDK delivers it - see EyeFeatureView.kt.
+        // Kept to part of the width so the controls below it stay on screen.
+        EyeFeatureView(Modifier.fillMaxWidth(0.58f).align(Alignment.CenterHorizontally))
+        EsSecondaryButton("Start / stop analyzers", { onAction(GazeAction.ToggleAnalyzers) }, Modifier.fillMaxWidth(), enabled = enabled)
+    }
+}
+
+@Composable
+private fun AudioAiVisionPanel(
+    s: Mav2ComposeController.StreamsState,
+    enabled: Boolean,
+    onAction: (StreamAction) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         EsMutedLine("Toggle microphone and AIVision streams, then watch live rates from the glasses")
         EsKeyValueRow("mic", if (s.micOn) "ON · ${formatBytes(s.micBytesPerSec)}/s" else "off")
@@ -638,7 +881,7 @@ private fun LosPanel(
         EsKeyValueRow("last touch event", s.lastTouch)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EsToggleButton(if (s.losOn) "LOS OFF" else "LOS ON", on = s.losOn, onClick = { onStreamAction(StreamAction.ToggleLos) }, modifier = Modifier.weight(1f), enabled = enabled)
-            EsToggleButton(if (s.touchOn) "Touch OFF" else "Touch ON", on = s.touchOn, onClick = { onStreamAction(StreamAction.ToggleTouch) }, modifier = Modifier.weight(1f), enabled = enabled)
+            EsToggleButton(if (s.touchOn) "M2Touch OFF" else "M2Touch ON", on = s.touchOn, onClick = { onStreamAction(StreamAction.ToggleTouch) }, modifier = Modifier.weight(1f), enabled = enabled)
         }
         val demoOnClick: (LosDemoAction) -> () -> Unit = { target ->
             { if (activeLosDemo == target) onStopDemo() else onDemoAction(target) }
@@ -672,12 +915,17 @@ private fun ServicesPanel(s: Mav2ComposeController.ServicesState, enabled: Boole
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         EsMutedLine("Probe OTA and display services")
         EsKeyValueRow("brightness 0–255", "${s.brightness}")
-        EsKeyValueRow("ota", s.otaSummary)
+        EsKeyValueRow("glasses firmware", s.glassesFirmware)
+        EsKeyValueRow("latest OTA", s.latestOta)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EsSecondaryButton("Brightness −", { onAction(ServiceAction.BrightnessDown) }, Modifier.weight(1f), enabled = enabled)
             EsSecondaryButton("Brightness +", { onAction(ServiceAction.BrightnessUp) }, Modifier.weight(1f), enabled = enabled)
         }
-        EsSecondaryButton("OTA probe", { onAction(ServiceAction.OtaProbe) }, Modifier.fillMaxWidth(), enabled = enabled)
+        EsSecondaryButton("Check OTA", { onAction(ServiceAction.OtaProbe) }, Modifier.fillMaxWidth(), enabled = enabled)
+
+        EsMutedLine("The desktop simulator")
+        // The simulator replaces the BLE transport, so it is reachable before any glasses are.
+        EsSecondaryButton("Connect simulator", { onAction(ServiceAction.ConnectSimulator) }, Modifier.fillMaxWidth(), enabled = enabled)
     }
 }
 

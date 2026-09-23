@@ -79,18 +79,23 @@ The following components are licensed under the [Apache License 2.0](https://www
 
 ### FFmpeg
 
-FFmpeg is used internally by the SDK for MPEG-1 video encoding, decoding, and transcoding. All MPEG-1 related patents have expired.
+FFmpeg is used internally by the SDK to receive RTSP video streams and to decode H.264 for the
+phone preview. The SDK does not use FFmpeg to encode video: all video encoding uses the platform
+encoders (Android MediaCodec, iOS VideoToolbox).
 
-**Android** - dynamically linked via ffmpeg-kit:
-- ffmpeg-kit (LGPL 3.0): https://github.com/arthenica/ffmpeg-kit
-- Android package: `io.github.jamaismagic.ffmpeg:ffmpeg-kit-main-16kb:6.1.7`
-- FFmpeg shared libraries (`.so`) are dynamically linked at runtime
-
-**iOS** - statically linked (custom minimal build):
+**FFmpeg libraries - Android and iOS, statically linked (custom minimal build):**
 - FFmpeg (LGPL 2.1+): https://ffmpeg.org
 - Source code: https://github.com/FFmpeg/FFmpeg
-- Custom build includes only: MPEG-1 encoder, H.264/HEVC decoders, RTSP/RTP protocols, swscale
-- Build configuration is documented in `NativeLibs/ffmpeg/README.md`
+- Libraries: libavcodec, libavformat, libavutil, libswscale
+- Custom build includes only: H.264 / HEVC / MJPEG decoders and parsers, RTSP / RTP / SDP
+  demuxing and protocols, swscale. No encoders and no GPL components.
+- Android: linked into the SDK's `libm2video.so`. iOS: linked into the `MaverickAI` framework.
+
+**ffmpeg-kit - Android only, dynamically linked:**
+- ffmpeg-kit (LGPL 3.0): https://github.com/arthenica/ffmpeg-kit
+- Android package: `io.github.jamaismagic.ffmpeg:ffmpeg-kit-main-16kb:6.1.7`
+- Used only to export phone-preview recordings (ProRes, VP9 WebM); its shared libraries
+  (`.so`) are loaded at runtime
 
 ---
 
